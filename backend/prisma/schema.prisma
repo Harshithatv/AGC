@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SYSTEM_ADMIN
+  ORG_ADMIN
+  ORG_USER
+}
+
+enum OrganizationType {
+  SINGLE
+  GROUP
+  INSTITUTION
+}
+
+enum ModuleStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ModuleMediaType {
+  VIDEO
+  PRESENTATION
+}
+
+model Organization {
+  id        String            @id @default(uuid())
+  name      String
+  type      OrganizationType
+  maxUsers  Int
+  startDate DateTime
+  createdAt DateTime          @default(now())
+  users     User[]
+  purchases PackagePurchase[]
+}
+
+model User {
+  id             String            @id @default(uuid())
+  name           String
+  email          String            @unique
+  passwordHash   String
+  role           Role
+  organizationId String?
+  organization   Organization?     @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime          @default(now())
+  progress       ModuleProgress[]
+  createdModules CourseModule[]    @relation("CreatedModules")
+  purchases      PackagePurchase[] @relation("PurchasedBy")
+}
+
+model PackagePurchase {
+  id             String           @id @default(uuid())
+  packageType    OrganizationType
+  purchasedAt    DateTime         @default(now())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  purchasedById  String
+  purchasedBy    User             @relation("PurchasedBy", fields: [purchasedById], references: [id])
+}
+
+model PackagePrice {
+  id          String           @id @default(uuid())
+  packageType OrganizationType @unique
+  amount      Int
+  currency    String           @default("INR")
+  updatedAt   DateTime         @updatedAt
+}
+
+model CourseModule {
+  id              String           @id @default(uuid())
+  title           String
+  description     String
+  order           Int
+  durationMinutes Int
+  deadlineDays    Int
+  mediaType       ModuleMediaType
+  mediaUrl        String
+  createdAt       DateTime         @default(now())
+  createdById     String
+  createdBy       User             @relation("CreatedModules", fields: [createdById], references: [id])
+  progress        ModuleProgress[]
+}
+
+model ModuleProgress {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  moduleId    String
+  module      CourseModule @relation(fields: [moduleId], references: [id])
+  status      ModuleStatus @default(NOT_STARTED)
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  @@unique([userId, moduleId])
+}
