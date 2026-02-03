@@ -25,34 +25,28 @@ enum ModuleStatus {
   COMPLETED
 }
 
-enum ModuleMediaType {
-  VIDEO
-  PRESENTATION
-}
-
 model Organization {
-  id        String            @id @default(uuid())
-  name      String
-  type      OrganizationType
-  maxUsers  Int
-  startDate DateTime
-  createdAt DateTime          @default(now())
-  users     User[]
-  purchases PackagePurchase[]
+  id         String            @id @default(uuid())
+  name       String
+  type       OrganizationType
+  maxUsers   Int
+  startDate  DateTime
+  createdAt  DateTime          @default(now())
+  users      User[]
+  purchases  PackagePurchase[]
 }
 
 model User {
-  id             String            @id @default(uuid())
-  name           String
-  email          String            @unique
-  passwordHash   String
-  role           Role
+  id           String           @id @default(uuid())
+  name         String
+  email        String           @unique
+  passwordHash String
+  role         Role
   organizationId String?
-  organization   Organization?     @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime          @default(now())
-  progress       ModuleProgress[]
-  createdModules CourseModule[]    @relation("CreatedModules")
-  purchases      PackagePurchase[] @relation("PurchasedBy")
+  organization Organization?    @relation(fields: [organizationId], references: [id])
+  createdAt    DateTime         @default(now())
+  progress     ModuleProgress[]
+  createdModules CourseModule[] @relation("CreatedModules")
 }
 
 model PackagePurchase {
@@ -62,39 +56,31 @@ model PackagePurchase {
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id])
   purchasedById  String
-  purchasedBy    User             @relation("PurchasedBy", fields: [purchasedById], references: [id])
-}
-
-model PackagePrice {
-  id          String           @id @default(uuid())
-  packageType OrganizationType @unique
-  amount      Int
-  currency    String           @default("INR")
-  updatedAt   DateTime         @updatedAt
+  purchasedBy    User             @relation(fields: [purchasedById], references: [id])
 }
 
 model CourseModule {
-  id              String           @id @default(uuid())
-  title           String
-  description     String
-  order           Int
-  durationMinutes Int
-  deadlineDays    Int
-  mediaType       ModuleMediaType
-  mediaUrl        String
-  createdAt       DateTime         @default(now())
-  createdById     String
-  createdBy       User             @relation("CreatedModules", fields: [createdById], references: [id])
-  progress        ModuleProgress[]
+  id               String           @id @default(uuid())
+  title            String
+  description      String
+  order            Int
+  durationMinutes  Int
+  deadlineDays     Int
+  videoUrl         String
+  presentationUrl  String
+  createdAt        DateTime         @default(now())
+  createdById      String
+  createdBy        User             @relation("CreatedModules", fields: [createdById], references: [id])
+  progress         ModuleProgress[]
 }
 
 model ModuleProgress {
-  id          String       @id @default(uuid())
+  id          String        @id @default(uuid())
   userId      String
-  user        User         @relation(fields: [userId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
   moduleId    String
-  module      CourseModule @relation(fields: [moduleId], references: [id])
-  status      ModuleStatus @default(NOT_STARTED)
+  module      CourseModule  @relation(fields: [moduleId], references: [id])
+  status      ModuleStatus  @default(NOT_STARTED)
   startedAt   DateTime?
   completedAt DateTime?
 
