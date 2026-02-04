@@ -11,6 +11,74 @@ export type LoginResponse = {
   };
 };
 
+function mapToFriendlyMessage(status: number, rawMessage: string) {
+  const message = rawMessage.toLowerCase();
+
+  if (status === 401) {
+    return 'Invalid email or password. Please try again.';
+  }
+  if (status === 403) {
+    return 'You do not have permission to perform this action.';
+  }
+  if (status === 404) {
+    return 'Requested information was not found.';
+  }
+  if (status === 409) {
+    return 'This record already exists. Please use different details.';
+  }
+  if (status === 413) {
+    return 'The uploaded file is too large. Please upload a smaller file.';
+  }
+  if (status >= 500) {
+    return 'We are having trouble right now. Please try again later.';
+  }
+
+  if (message.includes('email already')) {
+    return 'Email already in use. Please use a different email.';
+  }
+  if (message.includes('invalid credentials')) {
+    return 'Invalid email or password. Please try again.';
+  }
+  if (message.includes('password') && message.includes('longer')) {
+    return 'Password must be at least 6 characters.';
+  }
+  if (message.includes('email') && message.includes('valid')) {
+    return 'Please enter a valid email address.';
+  }
+
+  return status >= 400 && status < 500
+    ? 'Please check your details and try again.'
+    : 'Something went wrong. Please try again.';
+}
+
+async function getErrorMessage(res: Response) {
+  const contentType = res.headers.get('content-type') || '';
+  let rawText = '';
+  let rawMessage = '';
+
+  try {
+    rawText = await res.text();
+    if (rawText && contentType.includes('application/json')) {
+      const payload = JSON.parse(rawText);
+      if (Array.isArray(payload?.message)) {
+        rawMessage = payload.message.join(' ');
+      } else if (typeof payload?.message === 'string') {
+        rawMessage = payload.message;
+      } else if (typeof payload?.error === 'string') {
+        rawMessage = payload.error;
+      }
+    }
+  } catch {
+    rawText = '';
+  }
+
+  if (!rawMessage && rawText) {
+    rawMessage = rawText;
+  }
+
+  return mapToFriendlyMessage(res.status, rawMessage || '');
+}
+
 async function request<T>(path: string, options: RequestInit = {}) {
   const res = await fetch(`${API_URL}${path}`, {
     headers: {
@@ -21,8 +89,8 @@ async function request<T>(path: string, options: RequestInit = {}) {
   });
 
   if (!res.ok) {
-    const message = await res.text();
-    throw new Error(message || 'Request failed');
+    const message = await getErrorMessage(res);
+    throw new Error(message);
   }
 
   return res.json() as Promise<T>;
@@ -177,8 +245,8 @@ export async function uploadModuleFile(
   });
 
   if (!res.ok) {
-    const message = await res.text();
-    throw new Error(message || 'Upload failed');
+    const message = await getErrorMessage(res);
+    throw new Error(message);
   }
 
   return res.json() as Promise<{ url: string }>;
