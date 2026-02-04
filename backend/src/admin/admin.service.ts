@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { OrganizationType, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -26,10 +26,6 @@ export class AdminService {
   }
 
   async listOrganizations() {
-    const modules = await this.prisma.courseModule.findMany({
-      orderBy: { order: 'asc' }
-    });
-
     const organizations = await this.prisma.organization.findMany({
       include: {
         purchases: { orderBy: { purchasedAt: 'desc' }, take: 1 }
@@ -43,22 +39,9 @@ export class AdminService {
           where: { organizationId: organization.id }
         });
 
-        const moduleDeadlines = modules.map((moduleItem) => {
-          const deadline = new Date(organization.startDate);
-          deadline.setDate(deadline.getDate() + moduleItem.deadlineDays * moduleItem.order);
-
-          return {
-            id: moduleItem.id,
-            title: moduleItem.title,
-            order: moduleItem.order,
-            deadline
-          };
-        });
-
         return {
           ...organization,
-          userCount,
-          moduleDeadlines
+          userCount
         };
       })
     );
@@ -73,18 +56,6 @@ export class AdminService {
         purchasedBy: { select: { id: true, name: true, email: true } }
       },
       orderBy: { purchasedAt: 'desc' }
-    });
-  }
-
-  async getPricing() {
-    return this.prisma.packagePrice.findMany({ orderBy: { packageType: 'asc' } });
-  }
-
-  async updatePricing(params: { packageType: OrganizationType; amount: number; currency?: string }) {
-    return this.prisma.packagePrice.upsert({
-      where: { packageType: params.packageType },
-      update: { amount: params.amount, currency: params.currency ?? 'INR' },
-      create: { packageType: params.packageType, amount: params.amount, currency: params.currency ?? 'INR' }
     });
   }
 }
