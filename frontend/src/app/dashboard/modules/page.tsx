@@ -29,7 +29,10 @@ const emptyForm: ModuleForm = {
 export default function DashboardModulesPage() {
   const { user, token } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [newModule, setNewModule] = useState<ModuleForm>(emptyForm);
+  const [addError, setAddError] = useState('');
+  const [addLoading, setAddLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<ModuleForm>(emptyForm);
   const [preview, setPreview] = useState<{
@@ -84,18 +87,53 @@ export default function DashboardModulesPage() {
 
   const handleAddModule = async () => {
     if (!token) return;
-    await createModule(token, {
-      title: newModule.title,
-      description: newModule.description,
-      order: newModule.order,
-      durationMinutes: newModule.durationMinutes,
-      deadlineDays: newModule.deadlineDays,
+    setAddError('');
+    const payload = {
+      title: newModule.title.trim(),
+      description: newModule.description.trim(),
+      order: Number(newModule.order),
+      durationMinutes: Number(newModule.durationMinutes),
+      deadlineDays: Number(newModule.deadlineDays),
       mediaType: newModule.mediaType,
-      mediaUrl: newModule.mediaData
-    });
-    const moduleList = await listAllModules(token);
-    setModules(moduleList as any[]);
-    setNewModule(emptyForm);
+      mediaUrl: newModule.mediaData.trim()
+    };
+    console.log('Add module payload', payload);
+    if (!payload.title || !payload.description) {
+      setAddError('Title and description are required.');
+      return;
+    }
+    if (!Number.isInteger(payload.order) || payload.order < 1) {
+      setAddError('Order must be a whole number greater than 0.');
+      return;
+    }
+    if (!Number.isInteger(payload.durationMinutes) || payload.durationMinutes < 1) {
+      setAddError('Duration must be a whole number greater than 0.');
+      return;
+    }
+    if (!Number.isInteger(payload.deadlineDays) || payload.deadlineDays < 1) {
+      setAddError('Deadline must be a whole number greater than 0.');
+      return;
+    }
+    if (payload.mediaType !== 'VIDEO' && payload.mediaType !== 'PRESENTATION') {
+      setAddError('Please select a valid content type.');
+      return;
+    }
+    if (!payload.mediaUrl) {
+      setAddError('Please upload a file before saving the module.');
+      return;
+    }
+    try {
+      setAddLoading(true);
+      await createModule(token, payload);
+      const moduleList = await listAllModules(token);
+      setModules(moduleList as any[]);
+      setNewModule(emptyForm);
+      setShowAddForm(false);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Unable to add module');
+    } finally {
+      setAddLoading(false);
+    }
   };
 
   const handleDeleteModule = async (id: string) => {
@@ -145,78 +183,101 @@ export default function DashboardModulesPage() {
 
       {user.role === 'SYSTEM_ADMIN' ? (
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold">Add new module</h3>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-slate-400">Module title</label>
-              <input
-                value={newModule.title}
-                onChange={(event) => setNewModule({ ...newModule, title: event.target.value })}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-slate-400">Order</label>
-              <input
-                type="number"
-                value={newModule.order}
-                onChange={(event) => setNewModule({ ...newModule, order: Number(event.target.value) })}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-slate-400">Duration minutes</label>
-              <input
-                type="number"
-                value={newModule.durationMinutes}
-                onChange={(event) => setNewModule({ ...newModule, durationMinutes: Number(event.target.value) })}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-slate-400">Deadline days</label>
-              <input
-                type="number"
-                value={newModule.deadlineDays}
-                onChange={(event) => setNewModule({ ...newModule, deadlineDays: Number(event.target.value) })}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2"
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-semibold uppercase text-slate-400">Module description</label>
-              <textarea
-                value={newModule.description}
-                onChange={(event) => setNewModule({ ...newModule, description: event.target.value })}
-                rows={3}
-                className="w-full rounded-xl border border-slate-200 px-4 py-3"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-slate-400">Content type</label>
-              <select
-                value={newModule.mediaType}
-                onChange={(event) => setNewModule({ ...newModule, mediaType: event.target.value as MediaType })}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2"
-              >
-                <option value="VIDEO">Video</option>
-                <option value="PRESENTATION">Presentation</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-slate-400">Upload file</label>
-              <input
-                type="file"
-                onChange={(event) => handleFileChange(event.target.files?.[0] || null, 'new')}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2"
-              />
-            </div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Modules</h3>
+            <button
+              onClick={() => setShowAddForm((prev) => !prev)}
+              className="rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white"
+            >
+              {showAddForm ? 'Hide form' : 'Add new module'}
+            </button>
           </div>
-          <button
-            onClick={handleAddModule}
-            className="mt-4 rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white"
-          >
-            Add module
-          </button>
+          {showAddForm ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-slate-400">Module title</label>
+                <input
+                  value={newModule.title}
+                  onChange={(event) => setNewModule({ ...newModule, title: event.target.value })}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-slate-400">Order</label>
+                <input
+                  type="number"
+                  value={newModule.order}
+                  onChange={(event) => setNewModule({ ...newModule, order: Number(event.target.value) })}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-slate-400">Duration minutes</label>
+                <input
+                  type="number"
+                  value={newModule.durationMinutes}
+                  onChange={(event) => setNewModule({ ...newModule, durationMinutes: Number(event.target.value) })}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-slate-400">Deadline days</label>
+                <input
+                  type="number"
+                  value={newModule.deadlineDays}
+                  onChange={(event) => setNewModule({ ...newModule, deadlineDays: Number(event.target.value) })}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-semibold uppercase text-slate-400">Module description</label>
+                <textarea
+                  value={newModule.description}
+                  onChange={(event) => setNewModule({ ...newModule, description: event.target.value })}
+                  rows={3}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-slate-400">Content type</label>
+                <select
+                  value={newModule.mediaType}
+                  onChange={(event) => setNewModule({ ...newModule, mediaType: event.target.value as MediaType })}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                >
+                  <option value="VIDEO">Video</option>
+                  <option value="PRESENTATION">Presentation</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-slate-400">Upload file</label>
+                <input
+                  type="file"
+                  onChange={(event) => handleFileChange(event.target.files?.[0] || null, 'new')}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                />
+              </div>
+              <div className="md:col-span-2 flex gap-2">
+                <button
+                  onClick={handleAddModule}
+                  disabled={addLoading}
+                  className="rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {addLoading ? 'Saving...' : 'Save module'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setNewModule(emptyForm);
+                  }}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+                >
+                  Cancel
+                </button>
+                {addError ? <p className="text-sm text-red-500">{addError}</p> : null}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

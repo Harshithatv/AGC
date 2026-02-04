@@ -6,7 +6,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '10mb', type: '*/*' }));
   app.use(express.urlencoded({ extended: true }));
   app.useGlobalPipes(
     new ValidationPipe({

@@ -1,10 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Put, Req, UseGuards, UseInterceptors, UploadedFile, UsePipes, ValidationPipe } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import { CurrentUser } from '../common/current-user.decorator';
-import { CreateModuleDto } from './dto/create-module.dto';
 import { UpdateModuleDto } from './dto/update-module.dto';
 import { UploadModuleFileDto } from './dto/upload-module-file.dto';
 import { ModulesService } from './modules.service';
@@ -56,15 +55,75 @@ export class ModulesController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SYSTEM_ADMIN)
-  async createModule(@CurrentUser() user: { id: string }, @Body() body: CreateModuleDto) {
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: false,
+      forbidNonWhitelisted: false,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true }
+    })
+  )
+  async createModule(@CurrentUser() user: { id: string }, @Body() body: any, @Req() req: any) {
+    console.warn('CreateModule content-type', req?.headers?.['content-type']);
+    let source: any = body?.payload ?? body?.data ?? body ?? {};
+    if (typeof source === 'string') {
+      try {
+        source = JSON.parse(source);
+      } catch {
+        source = {};
+      }
+    }
+    if (Buffer.isBuffer(source)) {
+      try {
+        source = JSON.parse(source.toString('utf8'));
+      } catch {
+        source = {};
+      }
+    }
+    if (!source || Object.keys(source).length === 0) {
+      source = req?.body ?? {};
+    }
+    console.warn('CreateModule raw body', source);
+
+    const payload = {
+      title: String(source?.title ?? '').trim(),
+      description: String(source?.description ?? '').trim(),
+      order: Number(source?.order),
+      durationMinutes: Number(source?.durationMinutes),
+      deadlineDays: Number(source?.deadlineDays),
+      mediaType: String(source?.mediaType ?? '').trim(),
+      mediaUrl: String(source?.mediaUrl ?? '').trim()
+    };
+
+   
+
+    if (!payload.title || !payload.description) {
+      throw new BadRequestException('Title and description are required');
+    }
+    if (!Number.isInteger(payload.order) || payload.order < 1) {
+      throw new BadRequestException('Order must be a whole number greater than 0');
+    }
+    if (!Number.isInteger(payload.durationMinutes) || payload.durationMinutes < 1) {
+      throw new BadRequestException('Duration must be a whole number greater than 0');
+    }
+    if (!Number.isInteger(payload.deadlineDays) || payload.deadlineDays < 1) {
+      throw new BadRequestException('Deadline must be a whole number greater than 0');
+    }
+    if (payload.mediaType !== 'VIDEO' && payload.mediaType !== 'PRESENTATION') {
+      throw new BadRequestException('Media type must be VIDEO or PRESENTATION');
+    }
+    if (!payload.mediaUrl) {
+      throw new BadRequestException('Media URL is required');
+    }
+
     return this.modulesService.createModule({
-      title: body.title,
-      description: body.description,
-      order: body.order,
-      durationMinutes: body.durationMinutes,
-      deadlineDays: body.deadlineDays,
-      mediaType: body.mediaType,
-      mediaUrl: body.mediaUrl,
+      title: payload.title,
+      description: payload.description,
+      order: payload.order,
+      durationMinutes: payload.durationMinutes,
+      deadlineDays: payload.deadlineDays,
+      mediaType: payload.mediaType as 'VIDEO' | 'PRESENTATION',
+      mediaUrl: payload.mediaUrl,
       createdById: user.id
     });
   }

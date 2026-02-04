@@ -1,7 +1,8 @@
 {
-  "/login/page": "app/login/page.js",
-  "/course/modules/page": "app/course/modules/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/course/modules/[id]/page": "app/course/modules/[id]/page.js",
-  "/course/page": "app/course/page.js",
-  "/dashboard/modules/page": "app/dashboard/modules/page.js"
+  "/course/modules/page": "app/course/modules/page.js",
+  "/dashboard/modules/page": "app/dashboard/modules/page.js",
+  "/dashboard/users/user/[id]/page": "app/dashboard/users/user/[id]/page.js",
+  "/dashboard/users/page": "app/dashboard/users/page.js"
 }

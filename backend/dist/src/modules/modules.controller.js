@@ -19,7 +19,6 @@ const jwt_auth_guard_1 = require("../common/jwt-auth.guard");
 const roles_decorator_1 = require("../common/roles.decorator");
 const roles_guard_1 = require("../common/roles.guard");
 const current_user_decorator_1 = require("../common/current-user.decorator");
-const create_module_dto_1 = require("./dto/create-module.dto");
 const update_module_dto_1 = require("./dto/update-module.dto");
 const upload_module_file_dto_1 = require("./dto/upload-module-file.dto");
 const modules_service_1 = require("./modules.service");
@@ -51,15 +50,64 @@ let ModulesController = class ModulesController {
     async listAll() {
         return this.modulesService.listAllModules();
     }
-    async createModule(user, body) {
+    async createModule(user, body, req) {
+        console.warn('CreateModule content-type', req?.headers?.['content-type']);
+        let source = body?.payload ?? body?.data ?? body ?? {};
+        if (typeof source === 'string') {
+            try {
+                source = JSON.parse(source);
+            }
+            catch {
+                source = {};
+            }
+        }
+        if (Buffer.isBuffer(source)) {
+            try {
+                source = JSON.parse(source.toString('utf8'));
+            }
+            catch {
+                source = {};
+            }
+        }
+        if (!source || Object.keys(source).length === 0) {
+            source = req?.body ?? {};
+        }
+        console.warn('CreateModule raw body', source);
+        const payload = {
+            title: String(source?.title ?? '').trim(),
+            description: String(source?.description ?? '').trim(),
+            order: Number(source?.order),
+            durationMinutes: Number(source?.durationMinutes),
+            deadlineDays: Number(source?.deadlineDays),
+            mediaType: String(source?.mediaType ?? '').trim(),
+            mediaUrl: String(source?.mediaUrl ?? '').trim()
+        };
+        if (!payload.title || !payload.description) {
+            throw new common_1.BadRequestException('Title and description are required');
+        }
+        if (!Number.isInteger(payload.order) || payload.order < 1) {
+            throw new common_1.BadRequestException('Order must be a whole number greater than 0');
+        }
+        if (!Number.isInteger(payload.durationMinutes) || payload.durationMinutes < 1) {
+            throw new common_1.BadRequestException('Duration must be a whole number greater than 0');
+        }
+        if (!Number.isInteger(payload.deadlineDays) || payload.deadlineDays < 1) {
+            throw new common_1.BadRequestException('Deadline must be a whole number greater than 0');
+        }
+        if (payload.mediaType !== 'VIDEO' && payload.mediaType !== 'PRESENTATION') {
+            throw new common_1.BadRequestException('Media type must be VIDEO or PRESENTATION');
+        }
+        if (!payload.mediaUrl) {
+            throw new common_1.BadRequestException('Media URL is required');
+        }
         return this.modulesService.createModule({
-            title: body.title,
-            description: body.description,
-            order: body.order,
-            durationMinutes: body.durationMinutes,
-            deadlineDays: body.deadlineDays,
-            mediaType: body.mediaType,
-            mediaUrl: body.mediaUrl,
+            title: payload.title,
+            description: payload.description,
+            order: payload.order,
+            durationMinutes: payload.durationMinutes,
+            deadlineDays: payload.deadlineDays,
+            mediaType: payload.mediaType,
+            mediaUrl: payload.mediaUrl,
             createdById: user.id
         });
     }
@@ -125,10 +173,17 @@ __decorate([
     (0, common_1.Post)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(client_1.Role.SYSTEM_ADMIN),
+    (0, common_1.UsePipes)(new common_1.ValidationPipe({
+        whitelist: false,
+        forbidNonWhitelisted: false,
+        transform: true,
+        transformOptions: { enableImplicitConversion: true }
+    })),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, create_module_dto_1.CreateModuleDto]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], ModulesController.prototype, "createModule", null);
 __decorate([

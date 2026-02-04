@@ -8,42 +8,48 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateModuleDto = void 0;
-const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
+const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
 class CreateModuleDto {
 }
 exports.CreateModuleDto = CreateModuleDto;
 __decorate([
+    (0, class_transformer_1.Transform)(({ value }) => (value === null || value === undefined ? value : String(value).trim())),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateModuleDto.prototype, "title", void 0);
 __decorate([
+    (0, class_transformer_1.Transform)(({ value }) => (value === null || value === undefined ? value : String(value).trim())),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateModuleDto.prototype, "description", void 0);
 __decorate([
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], CreateModuleDto.prototype, "order", void 0);
 __decorate([
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], CreateModuleDto.prototype, "durationMinutes", void 0);
 __decorate([
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], CreateModuleDto.prototype, "deadlineDays", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.ModuleMediaType),
-    __metadata("design:type", typeof (_a = typeof client_1.ModuleMediaType !== "undefined" && client_1.ModuleMediaType) === "function" ? _a : Object)
+    __metadata("design:type", String)
 ], CreateModuleDto.prototype, "mediaType", void 0);
 __decorate([
+    (0, class_transformer_1.Transform)(({ value }) => (value === null || value === undefined ? value : String(value).trim())),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateModuleDto.prototype, "mediaUrl", void 0);

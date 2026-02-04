@@ -628,6 +628,9 @@ video {
 .h-10 {
   height: 2.5rem;
 }
+.h-12 {
+  height: 3rem;
+}
 .h-2 {
   height: 0.5rem;
 }
@@ -670,9 +673,6 @@ video {
 .h-full {
   height: 100%;
 }
-.h-12 {
-  height: 3rem;
-}
 .min-h-\[520px\] {
   min-height: 520px;
 }
@@ -681,6 +681,9 @@ video {
 }
 .w-10 {
   width: 2.5rem;
+}
+.w-12 {
+  width: 3rem;
 }
 .w-2 {
   width: 0.5rem;
@@ -720,9 +723,6 @@ video {
 }
 .w-full {
   width: 100%;
-}
-.w-12 {
-  width: 3rem;
 }
 .min-w-\[180px\] {
   min-width: 180px;
@@ -1554,16 +1554,16 @@ input, select, textarea {
     grid-template-columns: 1.2fr 1fr;
   }
 
+  .lg\:grid-cols-\[1\.5fr\2c 1fr\] {
+    grid-template-columns: 1.5fr 1fr;
+  }
+
   .lg\:grid-cols-\[1fr\2c 1\.1fr\] {
     grid-template-columns: 1fr 1.1fr;
   }
 
   .lg\:grid-cols-\[2fr\2c 1fr\] {
     grid-template-columns: 2fr 1fr;
-  }
-
-  .lg\:grid-cols-\[1\.5fr\2c 1fr\] {
-    grid-template-columns: 1.5fr 1fr;
   }
 
   .lg\:flex-row {

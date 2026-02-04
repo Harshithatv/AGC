@@ -1,4 +1,3 @@
-import { CreateModuleDto } from './dto/create-module.dto';
 import { UpdateModuleDto } from './dto/update-module.dto';
 import { UploadModuleFileDto } from './dto/upload-module-file.dto';
 import { ModulesService } from './modules.service';
@@ -66,7 +65,7 @@ export declare class ModulesController {
     }[]>;
     createModule(user: {
         id: string;
-    }, body: CreateModuleDto): Promise<{
+    }, body: any, req: any): Promise<{
         id: string;
         title: string;
         description: string;
