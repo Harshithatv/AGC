@@ -3,8 +3,8 @@ export declare class ProgressService {
     private prisma;
     constructor(prisma: PrismaService);
     getCompletionSummary(userId: string): Promise<{
-        completedCount: number;
-        totalModules: number;
+        completedCount: any;
+        totalModules: any;
         allCompleted: boolean;
     }>;
 }

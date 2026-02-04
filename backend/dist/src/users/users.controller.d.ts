@@ -6,29 +6,11 @@ export declare class UsersController {
     constructor(usersService: UsersService);
     listUsers(user: {
         organizationId?: string;
-    }): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.Role;
-        createdAt: Date;
-    }[]>;
+    }): Promise<any>;
     createUser(user: {
         organizationId?: string;
-    }, body: CreateUserDto): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.Role;
-        organizationId: string | null;
-    }>;
+    }, body: CreateUserDto): Promise<any>;
     bulkCreate(user: {
         organizationId?: string;
-    }, body: BulkUsersDto): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.Role;
-        createdAt: Date;
-    }[]>;
+    }, body: BulkUsersDto): Promise<any>;
 }

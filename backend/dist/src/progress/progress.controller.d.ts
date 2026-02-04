@@ -13,8 +13,8 @@ export declare class ProgressController {
             issuedAt: Date;
             program: string;
         } | null;
-        completedCount: number;
-        totalModules: number;
+        completedCount: any;
+        totalModules: any;
         allCompleted: boolean;
     }>;
 }

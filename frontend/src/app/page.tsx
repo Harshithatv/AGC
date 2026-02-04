@@ -22,7 +22,7 @@ const steps = [
   },
   {
     title: 'Set up your team',
-    description: 'Admins invite users individually or through bulk upload.'
+    description: 'Group/Institution admins add users individually or through bulk upload.'
   },
   {
     title: 'Complete modules',
@@ -61,7 +61,7 @@ export default function HomePage() {
               href="/packages"
               className="rounded-xl bg-ocean-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-ocean-200 transition hover:bg-ocean-700"
             >
-              Get started
+              Get Started
             </Link>
           </div>
         </div>
@@ -169,7 +169,7 @@ export default function HomePage() {
               href="/packages"
               className="inline-flex items-center rounded-xl bg-ocean-600 px-6 py-3 text-sm font-semibold text-white"
             >
-              Compare packages
+              Compare Packages
             </Link>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function HomePage() {
             href="/login"
             className="inline-flex items-center rounded-xl bg-ocean-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-ocean-200"
           >
-            Access learning portal
+            Access Learning Portal
           </Link>
         </div>
         <div>
@@ -197,6 +197,49 @@ export default function HomePage() {
             height={540}
             className="rounded-3xl shadow-lg"
           />
+        </div>
+      </section>
+
+      <section className="bg-slate-50">
+        <div className="mx-auto w-full max-w-6xl px-6 py-16">
+          <div className="rounded-3xl border border-slate-100 bg-white p-10 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Support built-in</p>
+                <h2 className="mt-2 text-3xl font-semibold text-slate-900">
+                  A learning experience that stays with your team
+                </h2>
+              </div>
+              <p className="max-w-md text-sm text-slate-600">
+                Every package includes guided resources, progress visibility, and structured follow-through so
+                training turns into practice.
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-6">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Resources</p>
+                <h3 className="mt-3 text-lg font-semibold text-slate-900">Coaching-ready materials</h3>
+                <p className="mt-3 text-sm text-slate-600">
+                  Printable guides, observation tools, and practical checklists for real classroom scenarios.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-6">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Visibility</p>
+                <h3 className="mt-3 text-lg font-semibold text-slate-900">Progress you can action</h3>
+                <p className="mt-3 text-sm text-slate-600">
+                  See who is on track, what is completed, and where support is needed.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-6">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Momentum</p>
+                <h3 className="mt-3 text-lg font-semibold text-slate-900">Structured follow-through</h3>
+                <p className="mt-3 text-sm text-slate-600">
+                  Sequential modules and deadlines keep teams aligned and certification-ready.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </div>

@@ -223,7 +223,7 @@ export default function CoursePortalPage() {
                 href="/course/modules"
                 className="inline-flex min-w-[180px] items-center justify-center rounded-xl bg-ocean-600 px-6 py-3 text-sm font-semibold text-white"
               >
-                Get started
+                Get Started
               </Link>
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-3">

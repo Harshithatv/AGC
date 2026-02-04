@@ -35,9 +35,6 @@ let AdminService = class AdminService {
         });
     }
     async listOrganizations() {
-        const modules = await this.prisma.courseModule.findMany({
-            orderBy: { order: 'asc' }
-        });
         const organizations = await this.prisma.organization.findMany({
             include: {
                 purchases: { orderBy: { purchasedAt: 'desc' }, take: 1 }
@@ -48,20 +45,9 @@ let AdminService = class AdminService {
             const userCount = await this.prisma.user.count({
                 where: { organizationId: organization.id }
             });
-            const moduleDeadlines = modules.map((moduleItem) => {
-                const deadline = new Date(organization.startDate);
-                deadline.setDate(deadline.getDate() + moduleItem.deadlineDays * moduleItem.order);
-                return {
-                    id: moduleItem.id,
-                    title: moduleItem.title,
-                    order: moduleItem.order,
-                    deadline
-                };
-            });
             return {
                 ...organization,
-                userCount,
-                moduleDeadlines
+                userCount
             };
         }));
         return results;
@@ -81,8 +67,15 @@ let AdminService = class AdminService {
     async updatePricing(params) {
         return this.prisma.packagePrice.upsert({
             where: { packageType: params.packageType },
-            update: { amount: params.amount, currency: params.currency ?? 'INR' },
-            create: { packageType: params.packageType, amount: params.amount, currency: params.currency ?? 'INR' }
+            create: {
+                packageType: params.packageType,
+                amount: params.amount,
+                currency: params.currency ?? 'INR'
+            },
+            update: {
+                amount: params.amount,
+                currency: params.currency ?? 'INR'
+            }
         });
     }
 };
