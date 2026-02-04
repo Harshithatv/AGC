@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class OrganizationsService {
@@ -18,7 +19,7 @@ export class OrganizationsService {
     }
 
     const userCount = await this.prisma.user.count({
-      where: { organizationId }
+      where: { organizationId, role: Role.ORG_USER }
     });
 
     return {

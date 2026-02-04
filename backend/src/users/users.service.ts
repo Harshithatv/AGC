@@ -2,10 +2,16 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { OrganizationType, Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { ModulesService } from '../modules/modules.service';
+import { ProgressService } from '../progress/progress.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private modulesService: ModulesService,
+    private progressService: ProgressService
+  ) {}
 
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email } });
@@ -97,5 +103,45 @@ export class UsersService {
     await this.prisma.user.createMany({ data });
 
     return this.listByOrganization(params.organizationId);
+  }
+
+  async getOrgUserProgressDetails(organizationId: string, userId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId, role: Role.ORG_USER },
+      select: { id: true, name: true, email: true, role: true, organizationId: true }
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const [organization, modules, summary] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: organizationId } }),
+      this.modulesService.getModulesForUser(user.id, organizationId),
+      this.progressService.getCompletionSummary(user.id)
+    ]);
+
+    const lastCompleted = [...modules]
+      .filter((moduleItem) => moduleItem.status === 'COMPLETED')
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .pop();
+
+    return {
+      user,
+      organization,
+      modules,
+      progress: summary,
+      lastCompletedModule: lastCompleted
+        ? { id: lastCompleted.id, title: lastCompleted.title, order: lastCompleted.order }
+        : null,
+      certificate: summary.allCompleted
+        ? {
+            issuedTo: user.name,
+            issuedEmail: user.email,
+            issuedAt: summary.issuedAt ?? new Date(),
+            program: 'Academic Guide Course & Certification'
+          }
+        : null
+    };
   }
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { getAdminUserProgress } from '@/lib/api';
+import { getAdminUserProgress, getOrgUserProgress } from '@/lib/api';
 
 type UserProgressDetails = {
   user: { id: string; name: string; email: string; role: string };
@@ -30,12 +30,14 @@ export default function AdminUserDetailsPage() {
 
   useEffect(() => {
     if (!token || !user) return;
-    if (user.role !== 'SYSTEM_ADMIN') {
+    if (user.role !== 'SYSTEM_ADMIN' && user.role !== 'ORG_ADMIN') {
       router.push('/dashboard');
       return;
     }
 
-    getAdminUserProgress(token, id).then((data) => setDetails(data as UserProgressDetails));
+    const loader =
+      user.role === 'SYSTEM_ADMIN' ? getAdminUserProgress(token, id) : getOrgUserProgress(token, id);
+    loader.then((data) => setDetails(data as UserProgressDetails));
   }, [token, user, id, router]);
 
   const summary = details?.progress;
@@ -61,7 +63,7 @@ export default function AdminUserDetailsPage() {
             </p> */}
           </div>
           <Link href="/dashboard/users" className="text-sm font-semibold text-ocean-600">
-            ← Back to user directory
+            ← Back to users
           </Link>
         </div>
       </div>

@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrganizationsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const client_1 = require("@prisma/client");
 let OrganizationsService = class OrganizationsService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -27,7 +28,7 @@ let OrganizationsService = class OrganizationsService {
             return null;
         }
         const userCount = await this.prisma.user.count({
-            where: { organizationId }
+            where: { organizationId, role: client_1.Role.ORG_USER }
         });
         return {
             ...organization,

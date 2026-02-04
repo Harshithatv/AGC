@@ -64,6 +64,9 @@ let UsersController = class UsersController {
             users: body.users
         });
     }
+    async getUserProgress(user, id) {
+        return this.usersService.getOrgUserProgressDetails(user.organizationId, id);
+    }
 };
 exports.UsersController = UsersController;
 __decorate([
@@ -92,6 +95,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, bulk_users_dto_1.BulkUsersDto]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "bulkCreate", null);
+__decorate([
+    (0, common_1.Get)(':id/progress'),
+    (0, roles_decorator_1.Roles)(client_1.Role.ORG_ADMIN),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getUserProgress", null);
 exports.UsersController = UsersController = __decorate([
     (0, common_1.Controller)('users'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

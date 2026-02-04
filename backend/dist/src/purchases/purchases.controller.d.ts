@@ -13,18 +13,18 @@ export declare class PurchasesController {
     create(body: CreatePurchaseDto): Promise<{
         purchase: {
             id: string;
-            organizationId: string;
-            purchasedAt: Date;
             packageType: import(".prisma/client").$Enums.OrganizationType;
+            purchasedAt: Date;
+            organizationId: string;
             purchasedById: string;
         };
         organization: {
             id: string;
             name: string;
-            createdAt: Date;
             type: import(".prisma/client").$Enums.OrganizationType;
             maxUsers: number;
             startDate: Date;
+            createdAt: Date;
         };
         admin: {
             id: string;

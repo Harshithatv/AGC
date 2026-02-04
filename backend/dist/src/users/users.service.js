@@ -14,9 +14,13 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const prisma_service_1 = require("../prisma/prisma.service");
+const modules_service_1 = require("../modules/modules.service");
+const progress_service_1 = require("../progress/progress.service");
 let UsersService = class UsersService {
-    constructor(prisma) {
+    constructor(prisma, modulesService, progressService) {
         this.prisma = prisma;
+        this.modulesService = modulesService;
+        this.progressService = progressService;
     }
     async findByEmail(email) {
         return this.prisma.user.findUnique({ where: { email } });
@@ -82,10 +86,47 @@ let UsersService = class UsersService {
         await this.prisma.user.createMany({ data });
         return this.listByOrganization(params.organizationId);
     }
+    async getOrgUserProgressDetails(organizationId, userId) {
+        const user = await this.prisma.user.findFirst({
+            where: { id: userId, organizationId, role: client_1.Role.ORG_USER },
+            select: { id: true, name: true, email: true, role: true, organizationId: true }
+        });
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        const [organization, modules, summary] = await Promise.all([
+            this.prisma.organization.findUnique({ where: { id: organizationId } }),
+            this.modulesService.getModulesForUser(user.id, organizationId),
+            this.progressService.getCompletionSummary(user.id)
+        ]);
+        const lastCompleted = [...modules]
+            .filter((moduleItem) => moduleItem.status === 'COMPLETED')
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+            .pop();
+        return {
+            user,
+            organization,
+            modules,
+            progress: summary,
+            lastCompletedModule: lastCompleted
+                ? { id: lastCompleted.id, title: lastCompleted.title, order: lastCompleted.order }
+                : null,
+            certificate: summary.allCompleted
+                ? {
+                    issuedTo: user.name,
+                    issuedEmail: user.email,
+                    issuedAt: summary.issuedAt ?? new Date(),
+                    program: 'Academic Guide Course & Certification'
+                }
+                : null
+        };
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        modules_service_1.ModulesService,
+        progress_service_1.ProgressService])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map

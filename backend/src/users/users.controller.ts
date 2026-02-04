@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
@@ -64,5 +64,14 @@ export class UsersController {
       organizationId: user.organizationId as string,
       users: body.users
     });
+  }
+
+  @Get(':id/progress')
+  @Roles(Role.ORG_ADMIN)
+  async getUserProgress(
+    @CurrentUser() user: { organizationId?: string },
+    @Param('id') id: string
+  ) {
+    return this.usersService.getOrgUserProgressDetails(user.organizationId as string, id);
   }
 }

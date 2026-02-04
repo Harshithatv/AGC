@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { bulkCreateUsers, createUser, listUsers, listAdminOrganizations } from '@/lib/api';
+import { bulkCreateUsers, createUser, listUsers, listAdminOrganizations, getOrganization } from '@/lib/api';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 
@@ -10,6 +10,7 @@ export default function DashboardUsersPage() {
   const { user, token } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [orgs, setOrgs] = useState<any[]>([]);
+  const [org, setOrg] = useState<any | null>(null);
   const [bulkText, setBulkText] = useState('');
   const [bulkFileName, setBulkFileName] = useState('');
   const [bulkError, setBulkError] = useState('');
@@ -17,12 +18,15 @@ export default function DashboardUsersPage() {
   const [singleError, setSingleError] = useState('');
   const [singleLoading, setSingleLoading] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(true);
+  const [showBulkForm, setShowBulkForm] = useState(false);
 
   useEffect(() => {
     if (!token || !user) return;
 
     if (user.role === 'ORG_ADMIN') {
       listUsers(token).then((data) => setUsers(data as any[]));
+      getOrganization(token).then((data) => setOrg(data as any));
     }
 
     if (user.role === 'SYSTEM_ADMIN') {
@@ -50,11 +54,21 @@ export default function DashboardUsersPage() {
       setSingleError('Password must be at least 6 characters.');
       return;
     }
+    if (org && typeof org.userCount === 'number' && typeof org.maxUsers === 'number') {
+      if (org.userCount >= org.maxUsers) {
+        setSingleError('User limit reached for this package.');
+        return;
+      }
+    }
     try {
       setSingleLoading(true);
       await createUser(token, payload);
       const userList = await listUsers(token);
       setUsers(userList as any[]);
+      if (user?.role === 'ORG_ADMIN') {
+        const orgData = await getOrganization(token);
+        setOrg(orgData as any);
+      }
       setNewUser({ name: '', email: '', password: '' });
     } catch (err) {
       setSingleError(err instanceof Error ? err.message : 'Unable to add user');
@@ -87,12 +101,22 @@ export default function DashboardUsersPage() {
       setBulkError('Each row must include valid name, email, and password (min 6 characters).');
       return;
     }
+    if (org && typeof org.userCount === 'number' && typeof org.maxUsers === 'number') {
+      if (org.userCount + usersPayload.length > org.maxUsers) {
+        setBulkError('User limit exceeded for this package.');
+        return;
+      }
+    }
 
     try {
       setBulkLoading(true);
       await bulkCreateUsers(token, { users: usersPayload });
       const userList = await listUsers(token);
       setUsers(userList as any[]);
+      if (user?.role === 'ORG_ADMIN') {
+        const orgData = await getOrganization(token);
+        setOrg(orgData as any);
+      }
       setBulkText('');
       setBulkFileName('');
     } catch (err) {
@@ -137,11 +161,20 @@ export default function DashboardUsersPage() {
         if (invalid) {
           throw new Error('Each row must include valid name, email, and password (min 6 characters).');
         }
+        if (org && typeof org.userCount === 'number' && typeof org.maxUsers === 'number') {
+          if (org.userCount + usersPayload.length > org.maxUsers) {
+            throw new Error('User limit exceeded for this package.');
+          }
+        }
         if (!token) return;
         setBulkLoading(true);
         await bulkCreateUsers(token, { users: usersPayload });
         const userList = await listUsers(token);
         setUsers(userList as any[]);
+        if (user?.role === 'ORG_ADMIN') {
+          const orgData = await getOrganization(token);
+          setOrg(orgData as any);
+        }
       } catch (err) {
         setBulkError(err instanceof Error ? err.message : 'Unable to upload users');
       } finally {
@@ -199,75 +232,103 @@ export default function DashboardUsersPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold">Add a single user</h3>
-          <p className="mt-2 text-sm text-slate-600">Create a learner profile with login details.</p>
-          <div className="mt-4 space-y-3">
-            <input
-              placeholder="Full name"
-              value={newUser.name}
-              onChange={(event) => setNewUser({ ...newUser, name: event.target.value })}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2"
-            />
-            <input
-              placeholder="Email"
-              value={newUser.email}
-              onChange={(event) => setNewUser({ ...newUser, email: event.target.value })}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2"
-            />
-            <input
-              placeholder="Temporary password"
-              value={newUser.password}
-              onChange={(event) => setNewUser({ ...newUser, password: event.target.value })}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2"
-            />
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">Add learners</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Choose single add or bulk upload to onboard learners.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={handleAddUser}
-              disabled={singleLoading}
-              className="rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              onClick={() => setShowAddForm((prev) => !prev)}
+              className="rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white"
             >
-              {singleLoading ? 'Adding...' : 'Add user'}
+              {showAddForm ? 'Hide add user' : 'Add user'}
             </button>
-            {singleError ? <p className="text-sm text-red-500">{singleError}</p> : null}
+            <button
+              onClick={() => setShowBulkForm((prev) => !prev)}
+              className="rounded-xl border border-ocean-200 px-4 py-2 text-sm font-semibold text-ocean-700"
+            >
+              {showBulkForm ? 'Hide bulk upload' : 'Bulk upload'}
+            </button>
           </div>
         </div>
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold">Bulk upload users</h3>
-          <p className="mt-2 text-sm text-slate-600">
-            Upload an Excel/CSV file with columns: name, email, password.
-          </p>
-          <label className="mt-4 flex cursor-pointer items-center justify-between rounded-2xl border border-dashed border-ocean-200 bg-ocean-50 px-4 py-4 text-sm text-ocean-700">
-            <span>{bulkFileName ? bulkFileName : 'Choose .xlsx or .csv file'}</span>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ocean-700">Browse</span>
-            <input
-              type="file"
-              accept=".xlsx,.csv"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) handleBulkFile(file);
-              }}
-            />
-          </label>
-          <div className="mt-4">
-            <p className="text-xs text-slate-500">Optional: paste CSV rows below if needed.</p>
-            <textarea
-              value={bulkText}
-              onChange={(event) => setBulkText(event.target.value)}
-              rows={5}
-              className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-3"
-              placeholder="Jane Doe,jane@example.com,Temp1234"
-            />
-          </div>
-          {bulkError ? <p className="mt-3 text-sm text-red-500">{bulkError}</p> : null}
-          <button
-            onClick={handleBulkUpload}
-            disabled={bulkLoading}
-            className="mt-3 rounded-xl border border-ocean-200 px-4 py-2 text-sm font-semibold text-ocean-700 disabled:opacity-60"
-          >
-            {bulkLoading ? 'Uploading...' : 'Upload users'}
-          </button>
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          {showAddForm ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+              <h4 className="text-base font-semibold">Add a single user</h4>
+              <p className="mt-2 text-sm text-slate-600">Create a learner profile with login details.</p>
+              <div className="mt-4 space-y-3">
+                <input
+                  placeholder="Full name"
+                  value={newUser.name}
+                  onChange={(event) => setNewUser({ ...newUser, name: event.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2"
+                />
+                <input
+                  placeholder="Email"
+                  value={newUser.email}
+                  onChange={(event) => setNewUser({ ...newUser, email: event.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2"
+                />
+                <input
+                  placeholder="Temporary password"
+                  value={newUser.password}
+                  onChange={(event) => setNewUser({ ...newUser, password: event.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2"
+                />
+                <button
+                  onClick={handleAddUser}
+                  disabled={singleLoading}
+                  className="rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {singleLoading ? 'Adding...' : 'Add user'}
+                </button>
+                {singleError ? <p className="text-sm text-red-500">{singleError}</p> : null}
+              </div>
+            </div>
+          ) : null}
+          {showBulkForm ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+              <h4 className="text-base font-semibold">Bulk upload users</h4>
+              <p className="mt-2 text-sm text-slate-600">
+                Upload an Excel file with columns: name, email, password.
+              </p>
+              <label className="mt-4 flex cursor-pointer items-center justify-between rounded-2xl border border-dashed border-ocean-200 bg-ocean-50 px-4 py-4 text-sm text-ocean-700">
+                <span>{bulkFileName ? bulkFileName : 'Choose .xlsx or .csv file'}</span>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ocean-700">Browse</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.csv"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) handleBulkFile(file);
+                  }}
+                />
+              </label>
+              {/* <div className="mt-4">
+                <p className="text-xs text-slate-500">Optional: paste CSV rows below if needed.</p>
+                <textarea
+                  value={bulkText}
+                  onChange={(event) => setBulkText(event.target.value)}
+                  rows={5}
+                  className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3"
+                  placeholder="Jane Doe,jane@example.com,Temp1234"
+                />
+              </div> */}
+              {bulkError ? <p className="mt-3 text-sm text-red-500">{bulkError}</p> : null}
+              {/* <button
+                onClick={handleBulkUpload}
+                disabled={bulkLoading}
+                className="mt-3 rounded-xl border border-ocean-200 px-4 py-2 text-sm font-semibold text-ocean-700 disabled:opacity-60"
+              >
+                {bulkLoading ? 'Uploading...' : 'Upload users'}
+              </button> */}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -283,9 +344,10 @@ export default function DashboardUsersPage() {
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {users.map((member) => (
-            <div
+            <Link
               key={member.id}
-              className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4"
+              href={`/dashboard/users/user/${member.id}`}
+              className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:shadow-sm"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-sm font-semibold text-ocean-700">
                 {(member.name || 'U').slice(0, 1).toUpperCase()}
@@ -294,7 +356,7 @@ export default function DashboardUsersPage() {
                 <p className="font-semibold text-slate-900">{member.name}</p>
                 <p className="text-sm text-slate-500">{member.email}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

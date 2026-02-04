@@ -99,7 +99,7 @@ export default function AdminOrganizationUsersPage() {
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{member.name}</p>
                     <p className="text-xs text-slate-500">{member.email}</p>
-                    <p className="mt-1 text-xs text-slate-400">{member.role}</p>
+                    {/* <p className="mt-1 text-xs text-slate-400">{member.role}</p> */}
                   </div>
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-semibold ${

@@ -308,6 +308,12 @@ export function getAdminUserProgress(token: string, id: string) {
   });
 }
 
+export function getOrgUserProgress(token: string, id: string) {
+  return request(`/users/${id}/progress`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 export function createModule(
   token: string,
   payload: {
