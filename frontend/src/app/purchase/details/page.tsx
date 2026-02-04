@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { getPricing } from '@/lib/api';
 
 const packageOptions = [
@@ -63,17 +63,17 @@ const STORAGE_KEY = 'agc_purchase_details';
 
 export default function PurchaseDetailsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const selectedFromUrl = (searchParams.get('package') || '').toUpperCase();
 
   const [form, setForm] = useState<DetailsForm>(initialForm);
   const [pricing, setPricing] = useState<Array<{ packageType: string; amount: number; currency: string }>>([]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const selectedFromUrl = (params.get('package') || '').toUpperCase();
     if (selectedFromUrl === 'SINGLE' || selectedFromUrl === 'GROUP' || selectedFromUrl === 'INSTITUTION') {
       setForm((prev) => ({ ...prev, packageType: selectedFromUrl as PackageType }));
     }
-  }, [selectedFromUrl]);
+  }, []);
 
   useEffect(() => {
     getPricing()
