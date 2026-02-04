@@ -70,7 +70,7 @@ model PackagePrice {
   packageType OrganizationType @unique
   amount      Int
   currency    String           @default("INR")
-  updatedAt   DateTime
+  updatedAt   DateTime         @updatedAt
 }
 
 model CourseModule {
