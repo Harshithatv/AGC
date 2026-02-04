@@ -58,8 +58,12 @@ export default function ModuleViewerPage() {
     await completeModule(token, moduleId);
     const moduleData = await getMyModules(token);
     setModules(moduleData as any[]);
-    const certData = await getCertificate(token);
-    setCertificate(certData);
+    const certData = (await getCertificate(token)) as {
+      certificate?: { issuedTo: string; issuedEmail: string; issuedAt: string; program: string } | null;
+      completedCount?: number;
+      totalModules?: number;
+    };
+    setCertificate(certData as any);
     if (certData?.certificate && certData?.completedCount === certData?.totalModules) {
       setShowCertificatePopup(true);
     }
