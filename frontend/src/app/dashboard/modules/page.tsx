@@ -47,6 +47,13 @@ export default function DashboardModulesPage() {
   });
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const resolveMediaUrl = (url: string) => (url.startsWith('http') ? url : `${apiBaseUrl}${url}`);
+  const getPresentationViewerUrl = (url: string) => {
+    const lower = url.toLowerCase();
+    if (lower.endsWith('.pdf')) {
+      return url;
+    }
+    return `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
+  };
 
   useEffect(() => {
     if (!token || !user) return;
@@ -354,7 +361,7 @@ export default function DashboardModulesPage() {
                   </video>
                 ) : (
                   <iframe
-                    src={preview.url}
+                    src={getPresentationViewerUrl(preview.url)}
                     title="Presentation preview"
                     className="h-[60vh] w-full rounded-xl border border-slate-200"
                   />

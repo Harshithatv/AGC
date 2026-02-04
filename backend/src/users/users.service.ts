@@ -17,7 +17,7 @@ export class UsersService {
 
   async listByOrganization(organizationId: string) {
     return this.prisma.user.findMany({
-      where: { organizationId },
+      where: { organizationId, role: Role.ORG_USER },
       orderBy: { createdAt: 'asc' },
       select: { id: true, name: true, email: true, role: true, createdAt: true }
     });
@@ -39,7 +39,7 @@ export class UsersService {
     }
 
     const currentCount = await this.prisma.user.count({
-      where: { organizationId: params.organizationId }
+      where: { organizationId: params.organizationId, role: Role.ORG_USER }
     });
 
     if (currentCount >= organization.maxUsers) {
@@ -77,7 +77,7 @@ export class UsersService {
     }
 
     const currentCount = await this.prisma.user.count({
-      where: { organizationId: params.organizationId }
+      where: { organizationId: params.organizationId, role: Role.ORG_USER }
     });
 
     if (currentCount + params.users.length > organization.maxUsers) {

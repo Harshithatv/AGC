@@ -21,26 +21,9 @@ export class OrganizationsService {
       where: { organizationId }
     });
 
-    const modules = await this.prisma.courseModule.findMany({
-      orderBy: { order: 'asc' }
-    });
-
-    const moduleDeadlines = modules.map((moduleItem) => {
-      const deadline = new Date(organization.startDate);
-      deadline.setDate(deadline.getDate() + moduleItem.deadlineDays * moduleItem.order);
-
-      return {
-        id: moduleItem.id,
-        title: moduleItem.title,
-        order: moduleItem.order,
-        deadline
-      };
-    });
-
     return {
       ...organization,
-      userCount,
-      moduleDeadlines
+      userCount
     };
   }
 }

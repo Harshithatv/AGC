@@ -6,11 +6,11 @@ export declare class AuthController {
     login(body: LoginDto): Promise<{
         accessToken: string;
         user: {
-            id: any;
-            name: any;
-            email: any;
-            role: any;
-            organizationId: any;
+            id: string;
+            name: string;
+            email: string;
+            role: import(".prisma/client").$Enums.Role;
+            organizationId: string | null;
         };
     }>;
 }

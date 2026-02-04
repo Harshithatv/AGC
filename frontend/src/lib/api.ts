@@ -42,8 +42,14 @@ function mapToFriendlyMessage(status: number, rawMessage: string) {
   if (message.includes('password') && message.includes('longer')) {
     return 'Password must be at least 6 characters.';
   }
-  if (message.includes('email') && message.includes('valid')) {
+  if (message.includes('email') && (message.includes('valid') || message.includes('must be an email'))) {
     return 'Please enter a valid email address.';
+  }
+  if (message.includes('name must be a string')) {
+    return 'Name is required.';
+  }
+  if (message.includes('password must be a string')) {
+    return 'Password is required.';
   }
 
   return status >= 400 && status < 500
@@ -155,10 +161,15 @@ export function listUsers(token: string) {
 }
 
 export function createUser(token: string, payload: { name: string; email: string; password: string }) {
+  const sanitized = {
+    name: String(payload.name ?? '').trim(),
+    email: String(payload.email ?? '').trim(),
+    password: String(payload.password ?? '').trim()
+  };
   return request('/users', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(sanitized)
   });
 }
 
@@ -166,10 +177,17 @@ export function bulkCreateUsers(
   token: string,
   payload: { users: Array<{ name: string; email: string; password: string }> }
 ) {
+  const sanitized = {
+    users: payload.users.map((user) => ({
+      name: String(user.name ?? '').trim(),
+      email: String(user.email ?? '').trim(),
+      password: String(user.password ?? '').trim()
+    }))
+  };
   return request('/users/bulk', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(sanitized)
   });
 }
 
@@ -181,6 +199,18 @@ export function getCertificate(token: string) {
 
 export function listAdminOrganizations(token: string) {
   return request('/admin/organizations', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function getAdminOrganization(token: string, id: string) {
+  return request(`/admin/organizations/${id}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function listAdminOrganizationUsers(token: string, id: string) {
+  return request(`/admin/organizations/${id}/users`, {
     headers: { Authorization: `Bearer ${token}` }
   });
 }
@@ -269,6 +299,12 @@ export function updatePricing(
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload)
+  });
+}
+
+export function getAdminUserProgress(token: string, id: string) {
+  return request(`/admin/users/${id}/progress`, {
+    headers: { Authorization: `Bearer ${token}` }
   });
 }
 

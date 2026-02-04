@@ -16,7 +16,6 @@ const navByRole: Record<string, Array<{ label: string; href: string; icon: strin
   ],
   ORG_ADMIN: [
     { label: "Dashboard", href: "/dashboard/overview", icon: "grid" },
-    { label: "Package", href: "/dashboard/packages", icon: "box" },
     { label: "Users", href: "/dashboard/users", icon: "users" },
     { label: "Modules", href: "/dashboard/modules", icon: "book" }
   ],
@@ -34,7 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const roleLabel = useMemo(() => {
     if (!user) return "Dashboard";
     if (user.role === "SYSTEM_ADMIN") return "System Admin Dashboard";
-    if (user.role === "ORG_ADMIN") return "Organization Admin Dashboard";
+    if (user.role === "ORG_ADMIN") return "Admin Dashboard";
     return "Academic Guide Dashboard";
   }, [user]);
 

@@ -16,7 +16,8 @@ exports.ProgressModule = ProgressModule;
 exports.ProgressModule = ProgressModule = __decorate([
     (0, common_1.Module)({
         providers: [progress_service_1.ProgressService],
-        controllers: [progress_controller_1.ProgressController]
+        controllers: [progress_controller_1.ProgressController],
+        exports: [progress_service_1.ProgressService]
     })
 ], ProgressModule);
 //# sourceMappingURL=progress.module.js.map

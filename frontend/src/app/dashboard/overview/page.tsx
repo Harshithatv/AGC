@@ -23,7 +23,7 @@ export default function DashboardOverviewPage() {
   const roleLabel = useMemo(() => {
     if (!user) return 'Dashboard';
     if (user.role === 'SYSTEM_ADMIN') return 'System Admin Overview';
-    if (user.role === 'ORG_ADMIN') return 'Organization Overview';
+    if (user.role === 'ORG_ADMIN') return 'Admin Overview';
     return 'Learning Overview';
   }, [user]);
 
@@ -49,6 +49,7 @@ export default function DashboardOverviewPage() {
         ]);
         setOrg(orgData);
         setModules(moduleData as any[]);
+        return;
       }
 
       if (user.role === 'ORG_USER') {
@@ -78,9 +79,11 @@ export default function DashboardOverviewPage() {
         <div className="space-y-6">
           <div className="grid gap-6 md:grid-cols-3">
             <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <p className="text-sm text-slate-500">Organizations</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-900">{adminOrgs.length}</p>
-              <p className="mt-2 text-xs text-slate-400">Active this month</p>
+              <p className="text-sm text-slate-500">Learners</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">
+                {adminOrgs.reduce((total, item) => total + (item.userCount ?? 0), 0)}
+              </p>
+              <p className="mt-2 text-xs text-slate-400">Across all accounts</p>
             </div>
             <div className="rounded-2xl bg-white p-6 shadow-sm">
               <p className="text-sm text-slate-500">Purchases</p>
@@ -128,29 +131,68 @@ export default function DashboardOverviewPage() {
       ) : null}
 
       {user.role === 'ORG_ADMIN' ? (
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold">Package summary</h3>
-            {org ? (
-              <div className="mt-4 space-y-2 text-sm text-slate-600">
-                <div className="flex items-center justify-between">
-                  <span>Organization</span>
-                  <span className="font-semibold text-slate-900">{org.name}</span>
+        <div className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="rounded-2xl bg-white p-6 shadow-sm">
+              <p className="text-sm text-slate-500">Users</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">{org?.userCount ?? 0}</p>
+              <p className="mt-2 text-xs text-slate-400">Active learners</p>
+            </div>
+            <div className="rounded-2xl bg-white p-6 shadow-sm">
+              <p className="text-sm text-slate-500">Package</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">{org?.type ?? '-'}</p>
+              <p className="mt-2 text-xs text-slate-400">Current plan</p>
+            </div>
+            <div className="rounded-2xl bg-white p-6 shadow-sm">
+              <p className="text-sm text-slate-500">Modules</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">{modules.length}</p>
+              <p className="mt-2 text-xs text-slate-400">Published content</p>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[1.5fr,1fr]">
+            <div className="rounded-2xl bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold">Account summary</h3>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-xs text-slate-500">Account name</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">{org?.name ?? '-'}</p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Package</span>
-                  <span className="font-semibold text-slate-900">{org.type}</span>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-xs text-slate-500">User limit</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {org?.userCount ?? 0}/{org?.maxUsers ?? 0}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Users</span>
-                  <span className="font-semibold text-slate-900">{org.userCount}/{org.maxUsers}</span>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-xs text-slate-500">Start date</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {org?.startDate ? new Date(org.startDate).toLocaleDateString() : '-'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-xs text-slate-500">Modules assigned</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">{modules.length}</p>
                 </div>
               </div>
-            ) : null}
-          </div>
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold">Module progress</h3>
-            <p className="mt-2 text-sm text-slate-600">Total modules: {modules.length}</p>
+            </div>
+
+            <div className="rounded-2xl bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-semibold">Progress snapshot</h3>
+              <div className="mt-4 space-y-3 text-sm text-slate-600">
+                <div className="flex items-center justify-between">
+                  <span>Total modules</span>
+                  <span className="font-semibold text-slate-900">{modules.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Active learners</span>
+                  <span className="font-semibold text-slate-900">{org?.userCount ?? 0}</span>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-xs text-slate-500">
+                  Track learner progress under Users.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

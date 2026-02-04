@@ -14,9 +14,13 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const prisma_service_1 = require("../prisma/prisma.service");
+const modules_service_1 = require("../modules/modules.service");
+const progress_service_1 = require("../progress/progress.service");
 let AdminService = class AdminService {
-    constructor(prisma) {
+    constructor(prisma, modulesService, progressService) {
         this.prisma = prisma;
+        this.modulesService = modulesService;
+        this.progressService = progressService;
     }
     async bootstrapSystemAdmin(params) {
         const existing = await this.prisma.user.findUnique({ where: { email: params.email } });
@@ -43,7 +47,7 @@ let AdminService = class AdminService {
         });
         const results = await Promise.all(organizations.map(async (organization) => {
             const userCount = await this.prisma.user.count({
-                where: { organizationId: organization.id }
+                where: { organizationId: organization.id, role: client_1.Role.ORG_USER }
             });
             return {
                 ...organization,
@@ -78,10 +82,78 @@ let AdminService = class AdminService {
             }
         });
     }
+    async getOrganization(id) {
+        return this.prisma.organization.findUnique({
+            where: { id },
+            include: {
+                purchases: { orderBy: { purchasedAt: 'desc' }, take: 1 }
+            }
+        });
+    }
+    async listOrganizationUsersWithProgress(organizationId) {
+        const users = await this.prisma.user.findMany({
+            where: { organizationId, role: client_1.Role.ORG_USER },
+            orderBy: { createdAt: 'asc' },
+            select: { id: true, name: true, email: true, role: true, createdAt: true }
+        });
+        const usersWithProgress = await Promise.all(users.map(async (user) => {
+            const summary = await this.progressService.getCompletionSummary(user.id);
+            return {
+                ...user,
+                progress: summary,
+                certificate: summary.allCompleted
+                    ? {
+                        issuedTo: user.name,
+                        issuedEmail: user.email,
+                        issuedAt: summary.issuedAt ?? new Date(),
+                        program: 'Academic Guide Course & Certification'
+                    }
+                    : null
+            };
+        }));
+        return usersWithProgress;
+    }
+    async getUserProgressDetails(userId) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, name: true, email: true, role: true, organizationId: true }
+        });
+        if (!user?.organizationId) {
+            return null;
+        }
+        const [organization, modules, summary] = await Promise.all([
+            this.prisma.organization.findUnique({ where: { id: user.organizationId } }),
+            this.modulesService.getModulesForUser(user.id, user.organizationId),
+            this.progressService.getCompletionSummary(user.id)
+        ]);
+        const lastCompleted = [...modules]
+            .filter((moduleItem) => moduleItem.status === 'COMPLETED')
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+            .pop();
+        return {
+            user,
+            organization,
+            modules,
+            progress: summary,
+            lastCompletedModule: lastCompleted
+                ? { id: lastCompleted.id, title: lastCompleted.title, order: lastCompleted.order }
+                : null,
+            certificate: summary.allCompleted
+                ? {
+                    issuedTo: user.name,
+                    issuedEmail: user.email,
+                    issuedAt: summary.issuedAt ?? new Date(),
+                    program: 'Academic Guide Course & Certification'
+                }
+                : null
+        };
+    }
 };
 exports.AdminService = AdminService;
 exports.AdminService = AdminService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        modules_service_1.ModulesService,
+        progress_service_1.ProgressService])
 ], AdminService);
 //# sourceMappingURL=admin.service.js.map

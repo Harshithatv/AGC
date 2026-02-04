@@ -15,14 +15,17 @@ const class_validator_1 = require("class-validator");
 class BulkUserItemDto {
 }
 __decorate([
+    (0, class_transformer_1.Transform)(({ value }) => (value === null || value === undefined ? value : String(value).trim())),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], BulkUserItemDto.prototype, "name", void 0);
 __decorate([
+    (0, class_transformer_1.Transform)(({ value }) => (value === null || value === undefined ? value : String(value).trim())),
     (0, class_validator_1.IsEmail)(),
     __metadata("design:type", String)
 ], BulkUserItemDto.prototype, "email", void 0);
 __decorate([
+    (0, class_transformer_1.Transform)(({ value }) => (value === null || value === undefined ? value : String(value).trim())),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(6),
     __metadata("design:type", String)

@@ -11,6 +11,7 @@ import { ModulesService } from './modules.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import path from 'path';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -75,10 +76,44 @@ export class ModulesController {
     FileInterceptor('file', {
       storage: new CloudinaryStorage({
         cloudinary: cloudinary,
-        params: async () => ({
-          folder: 'agc-modules',
-          resource_type: 'auto'
-        })
+        params: async (req, file) => {
+          const bodyMediaType = req?.body?.mediaType;
+          const mime = file?.mimetype?.toLowerCase() || '';
+          const isPresentation =
+            bodyMediaType === 'PRESENTATION' ||
+            mime.includes('presentation') ||
+            mime.includes('powerpoint') ||
+            mime.includes('pdf');
+
+          let parsed: path.ParsedPath | undefined;
+          if (file?.originalname) {
+            try {
+              parsed = path.parse(file.originalname);
+            } catch {
+              parsed = undefined;
+            }
+          }
+          const fallbackName =
+            file?.fieldname ||
+            bodyMediaType ||
+            (isPresentation ? 'presentation' : 'video');
+          const safeBase = ((parsed?.name as string | undefined) || 'presentation')
+            .replace(/[^a-zA-Z0-9-_]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '')
+            .toLowerCase();
+          const ext = (parsed?.ext || '').replace('.', '').toLowerCase();
+          const base = safeBase || String(fallbackName).toLowerCase();
+          const publicId = isPresentation && ext ? `${base}-${Date.now()}.${ext}` : undefined;
+
+          return {
+            folder: 'agc-modules',
+            resource_type: isPresentation ? 'raw' : 'video',
+            type: 'upload',
+            access_mode: 'public',
+            public_id: publicId
+          };
+        }
       })
     })
   )

@@ -26,7 +26,7 @@ let UsersService = class UsersService {
     }
     async listByOrganization(organizationId) {
         return this.prisma.user.findMany({
-            where: { organizationId },
+            where: { organizationId, role: client_1.Role.ORG_USER },
             orderBy: { createdAt: 'asc' },
             select: { id: true, name: true, email: true, role: true, createdAt: true }
         });
@@ -39,7 +39,7 @@ let UsersService = class UsersService {
             throw new common_1.NotFoundException('Organization not found');
         }
         const currentCount = await this.prisma.user.count({
-            where: { organizationId: params.organizationId }
+            where: { organizationId: params.organizationId, role: client_1.Role.ORG_USER }
         });
         if (currentCount >= organization.maxUsers) {
             throw new common_1.BadRequestException('User limit reached for this package');
@@ -67,7 +67,7 @@ let UsersService = class UsersService {
             throw new common_1.NotFoundException('Organization not found');
         }
         const currentCount = await this.prisma.user.count({
-            where: { organizationId: params.organizationId }
+            where: { organizationId: params.organizationId, role: client_1.Role.ORG_USER }
         });
         if (currentCount + params.users.length > organization.maxUsers) {
             throw new common_1.BadRequestException('User limit exceeded for this package');

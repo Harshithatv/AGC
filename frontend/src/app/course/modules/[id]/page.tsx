@@ -14,8 +14,16 @@ export default function ModuleViewerPage() {
   const { user, token, logout, ready } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
   const [certificate, setCertificate] = useState<any>(null);
+  const [showCertificatePopup, setShowCertificatePopup] = useState(false);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const resolveMediaUrl = (url: string) => (url.startsWith('http') ? url : `${apiBaseUrl}${url}`);
+  const getPresentationViewerUrl = (url: string) => {
+    const lower = url.toLowerCase();
+    if (lower.endsWith('.pdf')) {
+      return url;
+    }
+    return `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
+  };
 
   useEffect(() => {
     if (!ready) {
@@ -52,10 +60,57 @@ export default function ModuleViewerPage() {
     setModules(moduleData as any[]);
     const certData = await getCertificate(token);
     setCertificate(certData);
+    if (certData?.certificate && certData?.completedCount === certData?.totalModules) {
+      setShowCertificatePopup(true);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {showCertificatePopup ? (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Certificate achieved</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Congratulations!</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  You have completed all modules. Your Academic Guide certificate is now available.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCertificatePopup(false)}
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-5 rounded-2xl border border-ocean-100 bg-ocean-50 p-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg">🏅</span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Certificate ready</p>
+                  <p className="text-xs text-slate-600">View and download from the certification section.</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Link
+                href="/course#certification"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+              >
+                View certificate
+              </Link>
+              <button
+                onClick={() => setShowCertificatePopup(false)}
+                className="inline-flex items-center justify-center rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
@@ -119,7 +174,7 @@ export default function ModuleViewerPage() {
               {moduleItem?.mediaUrl ? (
                 moduleItem.mediaType === 'PRESENTATION' ? (
                   <iframe
-                    src={resolveMediaUrl(moduleItem.mediaUrl)}
+                    src={getPresentationViewerUrl(resolveMediaUrl(moduleItem.mediaUrl))}
                     title="Presentation"
                     className="h-80 w-full"
                   />
@@ -171,19 +226,68 @@ export default function ModuleViewerPage() {
         </div>
       </section>
 
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <Image src="/images/logo.svg" alt="AGC logo" width={32} height={32} />
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Academic Guide Course</p>
-              <p className="text-xs text-slate-500">Learner portal</p>
+      <footer className="bg-gradient-to-br from-blue-100 via-blue-50 to-sky-100 text-slate-700">
+        <div className="mx-auto w-full max-w-6xl px-6 py-14">
+          <div className="grid gap-10 md:grid-cols-[2fr,1fr,1fr,1fr]">
+            <div className="space-y-4">
+              <p className="text-lg font-semibold text-slate-900">Academic Guide Course</p>
+              <p className="text-sm text-slate-700">
+                Professional development & certification for ALS educators. Built to support real-world academic
+                guidance with structured learning and verified progress.
+              </p>
+              <div className="flex gap-3">
+                <span className="rounded-full border border-blue-200 bg-white/80 px-4 py-2 text-xs font-semibold text-blue-700 shadow-sm">
+                  Certified learning
+                </span>
+                <span className="rounded-full border border-blue-200 bg-white/80 px-4 py-2 text-xs font-semibold text-blue-700 shadow-sm">
+                  Guided modules
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-slate-900">Quick links</p>
+              <ul className="space-y-2 text-sm text-slate-700">
+                <li className="hover:text-blue-700">Packages</li>
+                <li className="hover:text-blue-700">Purchase</li>
+                <li className="hover:text-blue-700">Login</li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-slate-900">Support</p>
+              <ul className="space-y-2 text-sm text-slate-700">
+                <li>help@agc-portal.com</li>
+                <li>Mon–Fri · 9:00–18:00</li>
+                <li>Response within 24 hours</li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-slate-900">Stay updated</p>
+              <p className="text-sm text-slate-700">
+                Get updates on module releases and certification announcements.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  className="w-full rounded-lg border border-blue-200 bg-white/90 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">
+                  Join
+                </button>
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-            <span>support@agc-portal.com</span>
-            <span>+91 90000 00000</span>
-            <span>© 2026 AGC</span>
+
+          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-blue-200 pt-6 text-xs text-slate-600 md:flex-row">
+            <span>© 2026 Academic Guide Course. All rights reserved.</span>
+            <div className="flex gap-4">
+              <span className="hover:text-blue-700">Privacy</span>
+              <span className="hover:text-blue-700">Terms</span>
+              <span className="hover:text-blue-700">Support</span>
+            </div>
           </div>
         </div>
       </footer>

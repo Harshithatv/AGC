@@ -52,6 +52,15 @@ let AdminController = class AdminController {
             currency: body.currency
         });
     }
+    async getOrganization(id) {
+        return this.adminService.getOrganization(id);
+    }
+    async listOrganizationUsers(id) {
+        return this.adminService.listOrganizationUsersWithProgress(id);
+    }
+    async getUserProgress(id) {
+        return this.adminService.getUserProgressDetails(id);
+    }
 };
 exports.AdminController = AdminController;
 __decorate([
@@ -95,6 +104,33 @@ __decorate([
     __metadata("design:paramtypes", [update_pricing_dto_1.UpdatePricingDto]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "updatePricing", null);
+__decorate([
+    (0, common_1.Get)('organizations/:id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(client_1.Role.SYSTEM_ADMIN),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getOrganization", null);
+__decorate([
+    (0, common_1.Get)('organizations/:id/users'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(client_1.Role.SYSTEM_ADMIN),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "listOrganizationUsers", null);
+__decorate([
+    (0, common_1.Get)('users/:id/progress'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(client_1.Role.SYSTEM_ADMIN),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getUserProgress", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
     __metadata("design:paramtypes", [admin_service_1.AdminService])

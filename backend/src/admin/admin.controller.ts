@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
@@ -55,5 +55,26 @@ export class AdminController {
       amount: body.amount,
       currency: body.currency
     });
+  }
+
+  @Get('organizations/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SYSTEM_ADMIN)
+  async getOrganization(@Param('id') id: string) {
+    return this.adminService.getOrganization(id);
+  }
+
+  @Get('organizations/:id/users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SYSTEM_ADMIN)
+  async listOrganizationUsers(@Param('id') id: string) {
+    return this.adminService.listOrganizationUsersWithProgress(id);
+  }
+
+  @Get('users/:id/progress')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SYSTEM_ADMIN)
+  async getUserProgress(@Param('id') id: string) {
+    return this.adminService.getUserProgressDetails(id);
   }
 }

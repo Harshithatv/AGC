@@ -26,6 +26,7 @@ const modules_service_1 = require("./modules.service");
 const platform_express_1 = require("@nestjs/platform-express");
 const cloudinary_1 = require("cloudinary");
 const multer_storage_cloudinary_1 = require("multer-storage-cloudinary");
+const path_1 = require("path");
 cloudinary_1.v2.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -137,10 +138,41 @@ __decorate([
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
         storage: new multer_storage_cloudinary_1.CloudinaryStorage({
             cloudinary: cloudinary_1.v2,
-            params: async () => ({
-                folder: 'agc-modules',
-                resource_type: 'auto'
-            })
+            params: async (req, file) => {
+                const bodyMediaType = req?.body?.mediaType;
+                const mime = file?.mimetype?.toLowerCase() || '';
+                const isPresentation = bodyMediaType === 'PRESENTATION' ||
+                    mime.includes('presentation') ||
+                    mime.includes('powerpoint') ||
+                    mime.includes('pdf');
+                let parsed;
+                if (file?.originalname) {
+                    try {
+                        parsed = path_1.default.parse(file.originalname);
+                    }
+                    catch {
+                        parsed = undefined;
+                    }
+                }
+                const fallbackName = file?.fieldname ||
+                    bodyMediaType ||
+                    (isPresentation ? 'presentation' : 'video');
+                const safeBase = (parsed?.name || 'presentation')
+                    .replace(/[^a-zA-Z0-9-_]+/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^-|-$/g, '')
+                    .toLowerCase();
+                const ext = (parsed?.ext || '').replace('.', '').toLowerCase();
+                const base = safeBase || String(fallbackName).toLowerCase();
+                const publicId = isPresentation && ext ? `${base}-${Date.now()}.${ext}` : undefined;
+                return {
+                    folder: 'agc-modules',
+                    resource_type: isPresentation ? 'raw' : 'video',
+                    type: 'upload',
+                    access_mode: 'public',
+                    public_id: publicId
+                };
+            }
         })
     })),
     __param(0, (0, common_1.UploadedFile)()),

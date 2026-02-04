@@ -4,6 +4,7 @@ import Link from 'next/link';
 const packages = [
   {
     name: 'Single User',
+    value: 'SINGLE',
     users: '1 user',
     description: 'Ideal for individual Academic Guides who want certification and personal tracking.',
     features: ['Personal dashboard', 'All 5 modules', 'Certification included', 'No annual subscription'],
@@ -11,6 +12,7 @@ const packages = [
   },
   {
     name: 'Group',
+    value: 'GROUP',
     users: 'Up to 5 users',
     description: 'Best for small teams that need a shared learning plan and consistent standards.',
     features: ['Group admin access', 'Bulk user upload', 'Team progress view', 'Certification included'],
@@ -18,6 +20,7 @@ const packages = [
   },
   {
     name: 'Institution',
+    value: 'INSTITUTION',
     users: 'Up to 10 users',
     description: 'Built for institutions that need scalable onboarding and quality assurance.',
     features: ['Institution admin access', 'Bulk user upload', 'QA reporting', 'Certification included'],
@@ -63,7 +66,7 @@ export default function PackagesPage() {
                 ))}
               </ul>
               <Link
-                href="/purchase"
+                href={`/purchase/details?package=${item.value}`}
                 className={`mt-6 inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition ${
                   item.highlight
                     ? 'bg-ocean-600 text-white hover:bg-ocean-700'
