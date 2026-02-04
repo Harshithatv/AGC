@@ -23,7 +23,7 @@ export default function LoginPage() {
       if (role === 'ORG_USER') {
         router.push('/course');
       } else {
-        router.push('/dashboard');
+        router.push('/dashboard/overview');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to login');
