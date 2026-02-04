@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { OrganizationType, Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -56,6 +56,25 @@ export class AdminService {
         purchasedBy: { select: { id: true, name: true, email: true } }
       },
       orderBy: { purchasedAt: 'desc' }
+    });
+  }
+
+  async getPricing() {
+    return this.prisma.packagePrice.findMany({ orderBy: { packageType: 'asc' } });
+  }
+
+  async updatePricing(params: { packageType: OrganizationType; amount: number; currency?: string }) {
+    return this.prisma.packagePrice.upsert({
+      where: { packageType: params.packageType },
+      create: {
+        packageType: params.packageType,
+        amount: params.amount,
+        currency: params.currency ?? 'INR'
+      },
+      update: {
+        amount: params.amount,
+        currency: params.currency ?? 'INR'
+      }
     });
   }
 }
