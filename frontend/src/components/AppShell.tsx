@@ -8,9 +8,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isDashboard = pathname.startsWith("/dashboard");
   const isCoursePortal = pathname.startsWith("/course");
-  const isAuth = pathname === "/login";
+  const isAuthPage = pathname === "/login" || pathname === "/forgot-password" || pathname === "/reset-password";
 
-  if (isDashboard || isAuth || isCoursePortal) {
+  if (isDashboard || isAuthPage || isCoursePortal) {
     return <>{children}</>;
   }
 

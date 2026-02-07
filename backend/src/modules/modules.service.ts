@@ -13,15 +13,15 @@ export class ModulesService {
         id: true,
         title: true,
         description: true,
-        order: true,
-        durationMinutes: true
+        order: true
       }
     });
   }
 
   async listAllModules() {
     return this.prisma.courseModule.findMany({
-      orderBy: { order: 'asc' }
+      orderBy: { order: 'asc' },
+      include: { files: { orderBy: { order: 'asc' } } }
     });
   }
 
@@ -29,13 +29,38 @@ export class ModulesService {
     title: string;
     description: string;
     order: number;
-    durationMinutes: number;
     deadlineDays: number;
-    mediaType: 'VIDEO' | 'PRESENTATION';
+    mediaType: 'VIDEO' | 'PRESENTATION' | 'PDF' | 'DOCUMENT';
     mediaUrl: string;
     createdById: string;
+    files?: Array<{
+      order: number;
+      title?: string | null;
+      mediaType: 'VIDEO' | 'PRESENTATION' | 'PDF' | 'DOCUMENT';
+      mediaUrl: string;
+    }>;
   }) {
-    return this.prisma.courseModule.create({ data: params });
+    return this.prisma.courseModule.create({
+      data: {
+        title: params.title,
+        description: params.description,
+        order: params.order,
+        deadlineDays: params.deadlineDays,
+        mediaType: params.mediaType,
+        mediaUrl: params.mediaUrl,
+        createdById: params.createdById,
+        files: params.files?.length
+          ? {
+              create: params.files.map((file) => ({
+                order: file.order,
+                title: file.title ?? null,
+                mediaType: file.mediaType,
+                mediaUrl: file.mediaUrl
+              }))
+            }
+          : undefined
+      }
+    });
   }
 
   async updateModule(
@@ -44,24 +69,97 @@ export class ModulesService {
       title: string;
       description: string;
       order: number;
-      durationMinutes: number;
       deadlineDays: number;
-      mediaType: 'VIDEO' | 'PRESENTATION';
+      mediaType: 'VIDEO' | 'PRESENTATION' | 'PDF' | 'DOCUMENT';
       mediaUrl: string;
     }>
   ) {
     return this.prisma.courseModule.update({ where: { id }, data: updates });
   }
 
+  async addModuleFiles(
+    moduleId: string,
+    files: Array<{
+      title?: string;
+      mediaType: 'VIDEO' | 'PRESENTATION' | 'PDF' | 'DOCUMENT';
+      mediaUrl: string;
+    }>
+  ) {
+    if (!files.length) return [];
+    const existing = await this.prisma.moduleFile.findMany({
+      where: { moduleId },
+      orderBy: { order: 'asc' }
+    });
+    const startOrder = (existing[existing.length - 1]?.order ?? 0) + 1;
+    const toCreate = files.map((file, index) => ({
+      moduleId,
+      order: startOrder + index,
+      title: file.title ?? null,
+      mediaType: file.mediaType,
+      mediaUrl: file.mediaUrl
+    }));
+    await this.prisma.moduleFile.createMany({ data: toCreate });
+    return this.prisma.moduleFile.findMany({ where: { moduleId }, orderBy: { order: 'asc' } });
+  }
+
+  async deleteModuleFile(moduleId: string, fileId: string) {
+    const file = await this.prisma.moduleFile.findUnique({ where: { id: fileId } });
+    if (!file || file.moduleId !== moduleId) {
+      throw new NotFoundException('Module file not found');
+    }
+    await this.prisma.moduleFileProgress.deleteMany({ where: { moduleFileId: fileId } });
+    return this.prisma.moduleFile.delete({ where: { id: fileId } });
+  }
+
   async deleteModule(id: string) {
+    await this.prisma.moduleFileProgress.deleteMany({ where: { moduleFile: { moduleId: id } } });
+    await this.prisma.moduleFile.deleteMany({ where: { moduleId: id } });
     await this.prisma.moduleProgress.deleteMany({ where: { moduleId: id } });
     return this.prisma.courseModule.delete({ where: { id } });
   }
 
+  async addModuleFile(params: {
+    moduleId: string;
+    order?: number;
+    title?: string;
+    mediaType: 'VIDEO' | 'PRESENTATION' | 'PDF' | 'DOCUMENT';
+    mediaUrl: string;
+  }) {
+    const moduleItem = await this.prisma.courseModule.findUnique({
+      where: { id: params.moduleId },
+      include: { files: { orderBy: { order: 'asc' } } }
+    });
+    if (!moduleItem) {
+      throw new NotFoundException('Module not found');
+    }
+
+    const existingOrders = new Set((moduleItem.files ?? []).map((file) => file.order));
+    const maxOrder = moduleItem.files?.[moduleItem.files.length - 1]?.order ?? 0;
+    const requestedOrder = typeof params.order === 'number' && params.order > 0 ? params.order : null;
+    const nextOrder =
+      requestedOrder && !existingOrders.has(requestedOrder) ? requestedOrder : maxOrder + 1;
+
+    const file = await this.prisma.moduleFile.create({
+      data: {
+        moduleId: params.moduleId,
+        order: nextOrder,
+        title: params.title ?? null,
+        mediaType: params.mediaType,
+        mediaUrl: params.mediaUrl
+      }
+    });
+
+    return file;
+  }
+
   async getModulesForUser(userId: string, organizationId: string) {
-    const [modules, progress, organization] = await Promise.all([
-      this.prisma.courseModule.findMany({ orderBy: { order: 'asc' } }),
+    const [modules, progress, progressFiles, organization] = await Promise.all([
+      this.prisma.courseModule.findMany({
+        orderBy: { order: 'asc' },
+        include: { files: { orderBy: { order: 'asc' } } }
+      }),
       this.prisma.moduleProgress.findMany({ where: { userId } }),
+      this.prisma.moduleFileProgress.findMany({ where: { userId } }),
       this.prisma.organization.findUnique({ where: { id: organizationId } })
     ]);
 
@@ -69,12 +167,41 @@ export class ModulesService {
       throw new NotFoundException('Organization not found');
     }
 
-    const progressMap = new Map(progress.map((item) => [item.moduleId, item]));
+    const moduleProgressMap = new Map(progress.map((item) => [item.moduleId, item]));
+    const fileProgressMap = new Map(progressFiles.map((item) => [item.moduleFileId, item]));
 
     let unlocked = true;
     return modules.map((moduleItem) => {
-      const itemProgress = progressMap.get(moduleItem.id);
-      const status = itemProgress?.status ?? ModuleStatus.NOT_STARTED;
+      const moduleFiles = moduleItem.files ?? [];
+      const moduleProgress = moduleProgressMap.get(moduleItem.id);
+      const hasFiles = moduleFiles.length > 0;
+      let fileUnlocked = unlocked;
+      const files = moduleFiles.map((file) => {
+        const fileProgress = fileProgressMap.get(file.id);
+        const status = fileProgress?.status ?? ModuleStatus.NOT_STARTED;
+        const isActive = fileUnlocked;
+        if (status !== ModuleStatus.COMPLETED) {
+          fileUnlocked = false;
+        }
+        return {
+          ...file,
+          status,
+          isActive,
+          startedAt: fileProgress?.startedAt ?? null,
+          completedAt: fileProgress?.completedAt ?? null
+        };
+      });
+
+      const completedFileCount = files.filter((file) => file.status === ModuleStatus.COMPLETED).length;
+      const moduleCompleted = hasFiles ? completedFileCount === files.length : moduleProgress?.status === ModuleStatus.COMPLETED;
+      const moduleStarted = hasFiles
+        ? files.some((file) => file.status !== ModuleStatus.NOT_STARTED)
+        : moduleProgress?.status === ModuleStatus.IN_PROGRESS;
+      const status = moduleCompleted
+        ? ModuleStatus.COMPLETED
+        : moduleStarted
+          ? ModuleStatus.IN_PROGRESS
+          : ModuleStatus.NOT_STARTED;
       const isActive = unlocked;
 
       if (status !== ModuleStatus.COMPLETED) {
@@ -89,8 +216,9 @@ export class ModulesService {
         status,
         isActive,
         deadline,
-        startedAt: itemProgress?.startedAt ?? null,
-        completedAt: itemProgress?.completedAt ?? null
+        startedAt: moduleProgress?.startedAt ?? null,
+        completedAt: moduleProgress?.completedAt ?? null,
+        files
       };
     });
   }
@@ -101,21 +229,45 @@ export class ModulesService {
       throw new NotFoundException('Module not found');
     }
 
+    const files = await this.prisma.moduleFile.findMany({
+      where: { moduleId },
+      orderBy: { order: 'asc' }
+    });
+
     const existing = await this.prisma.moduleProgress.findUnique({
       where: { userId_moduleId: { userId, moduleId } }
     });
 
-    if (existing) {
-      return existing;
+    if (!existing) {
+      await this.prisma.moduleProgress.create({
+        data: {
+          userId,
+          moduleId,
+          status: ModuleStatus.IN_PROGRESS,
+          startedAt: new Date()
+        }
+      });
     }
 
-    return this.prisma.moduleProgress.create({
-      data: {
-        userId,
-        moduleId,
-        status: ModuleStatus.IN_PROGRESS,
-        startedAt: new Date()
+    if (files.length > 0) {
+      const firstFile = files[0];
+      const existingFile = await this.prisma.moduleFileProgress.findUnique({
+        where: { userId_moduleFileId: { userId, moduleFileId: firstFile.id } }
+      });
+      if (!existingFile) {
+        await this.prisma.moduleFileProgress.create({
+          data: {
+            userId,
+            moduleFileId: firstFile.id,
+            status: ModuleStatus.IN_PROGRESS,
+            startedAt: new Date()
+          }
+        });
       }
+    }
+
+    return this.prisma.moduleProgress.findUnique({
+      where: { userId_moduleId: { userId, moduleId } }
     });
   }
 
@@ -124,6 +276,11 @@ export class ModulesService {
     if (!moduleItem) {
       throw new NotFoundException('Module not found');
     }
+
+    const files = await this.prisma.moduleFile.findMany({
+      where: { moduleId },
+      orderBy: { order: 'asc' }
+    });
 
     const modules = await this.prisma.courseModule.findMany({ orderBy: { order: 'asc' } });
     const currentIndex = modules.findIndex((m) => m.id === moduleId);
@@ -139,6 +296,15 @@ export class ModulesService {
 
       if (!previousProgress || previousProgress.status !== ModuleStatus.COMPLETED) {
         throw new BadRequestException('Complete previous module first');
+      }
+    }
+
+    if (files.length > 0) {
+      const completedCount = await this.prisma.moduleFileProgress.count({
+        where: { userId, moduleFile: { moduleId }, status: ModuleStatus.COMPLETED }
+      });
+      if (completedCount !== files.length) {
+        throw new BadRequestException('Complete all files in this module first');
       }
     }
 
@@ -162,5 +328,123 @@ export class ModulesService {
       where: { id: existing.id },
       data: { status: ModuleStatus.COMPLETED, completedAt: new Date() }
     });
+  }
+
+  async startModuleFile(userId: string, moduleId: string, fileId: string) {
+    const file = await this.prisma.moduleFile.findUnique({ where: { id: fileId } });
+    if (!file || file.moduleId !== moduleId) {
+      throw new NotFoundException('Module file not found');
+    }
+
+    const files = await this.prisma.moduleFile.findMany({
+      where: { moduleId },
+      orderBy: { order: 'asc' }
+    });
+    const index = files.findIndex((item) => item.id === fileId);
+    if (index === -1) {
+      throw new NotFoundException('Module file not found');
+    }
+
+    if (index > 0) {
+      const prevFile = files[index - 1];
+      const prevProgress = await this.prisma.moduleFileProgress.findUnique({
+        where: { userId_moduleFileId: { userId, moduleFileId: prevFile.id } }
+      });
+      if (!prevProgress || prevProgress.status !== ModuleStatus.COMPLETED) {
+        throw new BadRequestException('Complete previous file first');
+      }
+    }
+
+    const moduleProgress = await this.prisma.moduleProgress.findUnique({
+      where: { userId_moduleId: { userId, moduleId } }
+    });
+    if (!moduleProgress) {
+      await this.prisma.moduleProgress.create({
+        data: { userId, moduleId, status: ModuleStatus.IN_PROGRESS, startedAt: new Date() }
+      });
+    }
+
+    const existing = await this.prisma.moduleFileProgress.findUnique({
+      where: { userId_moduleFileId: { userId, moduleFileId: fileId } }
+    });
+    if (existing) {
+      return existing;
+    }
+
+    return this.prisma.moduleFileProgress.create({
+      data: {
+        userId,
+        moduleFileId: fileId,
+        status: ModuleStatus.IN_PROGRESS,
+        startedAt: new Date()
+      }
+    });
+  }
+
+  async completeModuleFile(userId: string, moduleId: string, fileId: string) {
+    const file = await this.prisma.moduleFile.findUnique({ where: { id: fileId } });
+    if (!file || file.moduleId !== moduleId) {
+      throw new NotFoundException('Module file not found');
+    }
+
+    const files = await this.prisma.moduleFile.findMany({
+      where: { moduleId },
+      orderBy: { order: 'asc' }
+    });
+    const index = files.findIndex((item) => item.id === fileId);
+    if (index === -1) {
+      throw new NotFoundException('Module file not found');
+    }
+
+    if (index > 0) {
+      const prevFile = files[index - 1];
+      const prevProgress = await this.prisma.moduleFileProgress.findUnique({
+        where: { userId_moduleFileId: { userId, moduleFileId: prevFile.id } }
+      });
+      if (!prevProgress || prevProgress.status !== ModuleStatus.COMPLETED) {
+        throw new BadRequestException('Complete previous file first');
+      }
+    }
+
+    const existing = await this.prisma.moduleFileProgress.findUnique({
+      where: { userId_moduleFileId: { userId, moduleFileId: fileId } }
+    });
+    if (!existing) {
+      await this.prisma.moduleFileProgress.create({
+        data: {
+          userId,
+          moduleFileId: fileId,
+          status: ModuleStatus.COMPLETED,
+          startedAt: new Date(),
+          completedAt: new Date()
+        }
+      });
+    } else {
+      await this.prisma.moduleFileProgress.update({
+        where: { id: existing.id },
+        data: { status: ModuleStatus.COMPLETED, completedAt: new Date() }
+      });
+    }
+
+    const completedCount = await this.prisma.moduleFileProgress.count({
+      where: { userId, moduleFile: { moduleId }, status: ModuleStatus.COMPLETED }
+    });
+    if (completedCount === files.length) {
+      const moduleProgress = await this.prisma.moduleProgress.findUnique({
+        where: { userId_moduleId: { userId, moduleId } }
+      });
+      if (!moduleProgress) {
+        await this.prisma.moduleProgress.create({
+          data: { userId, moduleId, status: ModuleStatus.COMPLETED, startedAt: new Date(), completedAt: new Date() }
+        });
+      } else {
+        await this.prisma.moduleProgress.update({
+          where: { id: moduleProgress.id },
+          data: { status: ModuleStatus.COMPLETED, completedAt: new Date() }
+        });
+      }
+    }
+
+    return { success: true };
   }
 }

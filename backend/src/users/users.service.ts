@@ -1,16 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrganizationType, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { ModulesService } from '../modules/modules.service';
 import { ProgressService } from '../progress/progress.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService,
     private modulesService: ModulesService,
-    private progressService: ProgressService
+    private progressService: ProgressService,
+    private emailService: EmailService
   ) {}
 
   async findByEmail(email: string) {
@@ -25,7 +27,7 @@ export class UsersService {
     return this.prisma.user.findMany({
       where: { organizationId, role: Role.ORG_USER },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, name: true, email: true, role: true, createdAt: true }
+      select: { id: true, name: true, email: true, createdAt: true }
     });
   }
 
@@ -52,13 +54,9 @@ export class UsersService {
       throw new BadRequestException('User limit reached for this package');
     }
 
-    if (organization.type === OrganizationType.SINGLE && currentCount >= 1) {
-      throw new BadRequestException('Single user package supports only one user');
-    }
-
     const passwordHash = await bcrypt.hash(params.password, 10);
 
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         name: params.name,
         email: params.email,
@@ -68,6 +66,17 @@ export class UsersService {
       },
       select: { id: true, name: true, email: true, role: true, organizationId: true }
     });
+
+    // Send welcome email with credentials (don't await to not block the response)
+    this.emailService.sendWelcomeEmail({
+      to: params.email,
+      name: params.name,
+      email: params.email,
+      password: params.password,
+      organizationName: organization.name
+    }).catch((err) => console.error('Email send failed:', err));
+
+    return user;
   }
 
   async bulkCreateUsers(params: {
@@ -102,7 +111,40 @@ export class UsersService {
 
     await this.prisma.user.createMany({ data });
 
+    // Send welcome emails to all created users (don't await to not block response)
+    params.users.forEach((user) => {
+      this.emailService.sendWelcomeEmail({
+        to: user.email,
+        name: user.name,
+        email: user.email,
+        password: user.password,
+        organizationName: organization.name
+      }).catch((err) => console.error('Email send failed for', user.email, err));
+    });
+
     return this.listByOrganization(params.organizationId);
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+    
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newPasswordHash }
+    });
+
+    return { success: true, message: 'Password changed successfully' };
   }
 
   async getOrgUserProgressDetails(organizationId: string, userId: string) {

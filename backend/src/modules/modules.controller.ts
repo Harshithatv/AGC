@@ -89,10 +89,17 @@ export class ModulesController {
       title: String(source?.title ?? '').trim(),
       description: String(source?.description ?? '').trim(),
       order: Number(source?.order),
-      durationMinutes: Number(source?.durationMinutes),
       deadlineDays: Number(source?.deadlineDays),
       mediaType: String(source?.mediaType ?? '').trim(),
-      mediaUrl: String(source?.mediaUrl ?? '').trim()
+      mediaUrl: String(source?.mediaUrl ?? '').trim(),
+      files: Array.isArray(source?.files)
+        ? source.files.map((file: any) => ({
+            order: Number(file?.order),
+            title: typeof file?.title === 'string' ? file.title.trim() : '',
+            mediaType: String(file?.mediaType ?? '').trim(),
+            mediaUrl: String(file?.mediaUrl ?? '').trim()
+          }))
+        : []
     };
 
    
@@ -103,14 +110,36 @@ export class ModulesController {
     if (!Number.isInteger(payload.order) || payload.order < 1) {
       throw new BadRequestException('Order must be a whole number greater than 0');
     }
-    if (!Number.isInteger(payload.durationMinutes) || payload.durationMinutes < 1) {
-      throw new BadRequestException('Duration must be a whole number greater than 0');
-    }
     if (!Number.isInteger(payload.deadlineDays) || payload.deadlineDays < 1) {
       throw new BadRequestException('Deadline must be a whole number greater than 0');
     }
-    if (payload.mediaType !== 'VIDEO' && payload.mediaType !== 'PRESENTATION') {
-      throw new BadRequestException('Media type must be VIDEO or PRESENTATION');
+    const allowedTypes = ['VIDEO', 'PDF'];
+    const sanitizedFiles = payload.files.filter((file: any) => file?.mediaUrl);
+    if (sanitizedFiles.length > 0) {
+      const invalidFile = sanitizedFiles.find((file: any) => !allowedTypes.includes(file.mediaType));
+      if (invalidFile) {
+        throw new BadRequestException('File media type must be VIDEO or PDF');
+      }
+      const invalidOrder = sanitizedFiles.find((file: any) => !Number.isInteger(file.order) || file.order < 1);
+      if (invalidOrder) {
+        throw new BadRequestException('File order must be a whole number greater than 0');
+      }
+    }
+
+    if (!payload.mediaUrl && sanitizedFiles.length === 0) {
+      throw new BadRequestException('At least one file is required');
+    }
+
+    const primaryFile = sanitizedFiles[0];
+    if (!payload.mediaUrl && primaryFile) {
+      payload.mediaUrl = primaryFile.mediaUrl;
+    }
+    if (!payload.mediaType && primaryFile) {
+      payload.mediaType = primaryFile.mediaType;
+    }
+
+    if (!allowedTypes.includes(payload.mediaType)) {
+      throw new BadRequestException('Media type must be VIDEO or PDF');
     }
     if (!payload.mediaUrl) {
       throw new BadRequestException('Media URL is required');
@@ -120,11 +149,16 @@ export class ModulesController {
       title: payload.title,
       description: payload.description,
       order: payload.order,
-      durationMinutes: payload.durationMinutes,
       deadlineDays: payload.deadlineDays,
-      mediaType: payload.mediaType as 'VIDEO' | 'PRESENTATION',
+      mediaType: payload.mediaType as 'VIDEO' | 'PRESENTATION' | 'PDF' | 'DOCUMENT',
       mediaUrl: payload.mediaUrl,
-      createdById: user.id
+      createdById: user.id,
+      files: sanitizedFiles.map((file: any) => ({
+        order: file.order,
+        title: file.title || null,
+        mediaType: file.mediaType,
+        mediaUrl: file.mediaUrl
+      }))
     });
   }
 
@@ -138,10 +172,8 @@ export class ModulesController {
         params: async (req, file) => {
           const bodyMediaType = req?.body?.mediaType;
           const mime = file?.mimetype?.toLowerCase() || '';
-          const isPresentation =
-            bodyMediaType === 'PRESENTATION' ||
-            mime.includes('presentation') ||
-            mime.includes('powerpoint') ||
+          const isPdf =
+            bodyMediaType === 'PDF' ||
             mime.includes('pdf');
 
           let parsed: path.ParsedPath | undefined;
@@ -155,19 +187,19 @@ export class ModulesController {
           const fallbackName =
             file?.fieldname ||
             bodyMediaType ||
-            (isPresentation ? 'presentation' : 'video');
-          const safeBase = ((parsed?.name as string | undefined) || 'presentation')
+            (isPdf ? 'document' : 'video');
+          const safeBase = ((parsed?.name as string | undefined) || 'document')
             .replace(/[^a-zA-Z0-9-_]+/g, '-')
             .replace(/-+/g, '-')
             .replace(/^-|-$/g, '')
             .toLowerCase();
           const ext = (parsed?.ext || '').replace('.', '').toLowerCase();
           const base = safeBase || String(fallbackName).toLowerCase();
-          const publicId = isPresentation && ext ? `${base}-${Date.now()}.${ext}` : undefined;
+          const publicId = isPdf && ext ? `${base}-${Date.now()}.${ext}` : undefined;
 
           return {
             folder: 'agc-modules',
-            resource_type: isPresentation ? 'raw' : 'video',
+            resource_type: isPdf ? 'raw' : 'video',
             type: 'upload',
             access_mode: 'public',
             public_id: publicId
@@ -179,19 +211,55 @@ export class ModulesController {
   async uploadFile(@UploadedFile() file: Express.Multer.File, @Body() body: UploadModuleFileDto) {
     const url = (file as Express.Multer.File & { path?: string }).path || '';
     if (body?.moduleId) {
-      await this.modulesService.updateModule(body.moduleId, {
-        mediaType: body.mediaType,
+      let inferredTitle = body.title;
+      if (!inferredTitle && file?.originalname) {
+        try {
+          inferredTitle = path.parse(file.originalname).name;
+        } catch {
+          inferredTitle = undefined;
+        }
+      }
+      await this.modulesService.addModuleFile({
+        moduleId: body.moduleId,
+        order: body.order,
+        title: inferredTitle,
+        mediaType: (body.mediaType || 'PDF') as 'VIDEO' | 'PRESENTATION' | 'PDF' | 'DOCUMENT',
         mediaUrl: url
       });
     }
     return { url };
   }
 
+  @Post(':id/files/:fileId/start')
+  @UseGuards(JwtAuthGuard)
+  async startModuleFile(
+    @CurrentUser() user: { id: string },
+    @Param('id') moduleId: string,
+    @Param('fileId') fileId: string
+  ) {
+    return this.modulesService.startModuleFile(user.id, moduleId, fileId);
+  }
+
+  @Post(':id/files/:fileId/complete')
+  @UseGuards(JwtAuthGuard)
+  async completeModuleFile(
+    @CurrentUser() user: { id: string },
+    @Param('id') moduleId: string,
+    @Param('fileId') fileId: string
+  ) {
+    return this.modulesService.completeModuleFile(user.id, moduleId, fileId);
+  }
+
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SYSTEM_ADMIN)
   async updateModule(@Param('id') id: string, @Body() body: UpdateModuleDto) {
-    return this.modulesService.updateModule(id, body);
+    const { filesToAdd, ...rest } = body;
+    const updated = await this.modulesService.updateModule(id, rest);
+    if (filesToAdd?.length) {
+      await this.modulesService.addModuleFiles(id, filesToAdd as any);
+    }
+    return updated;
   }
 
   @Delete(':id')
@@ -199,5 +267,12 @@ export class ModulesController {
   @Roles(Role.SYSTEM_ADMIN)
   async deleteModule(@Param('id') id: string) {
     return this.modulesService.deleteModule(id);
+  }
+
+  @Delete(':id/files/:fileId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SYSTEM_ADMIN)
+  async deleteModuleFile(@Param('id') moduleId: string, @Param('fileId') fileId: string) {
+    return this.modulesService.deleteModuleFile(moduleId, fileId);
   }
 }

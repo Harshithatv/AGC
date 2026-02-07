@@ -24,7 +24,6 @@ async function main() {
           title: 'UTL Methodology and Ethical Observation',
           description: 'Learn the UTL framework, ethical observation standards, and documentation practices.',
           order: 1,
-          durationMinutes: 60,
           deadlineDays: 7,
           mediaType: 'VIDEO',
           mediaUrl: '',
@@ -34,7 +33,6 @@ async function main() {
           title: 'Personalised Learning Design and Scaffolding',
           description: 'Design adaptive learning plans and scaffold learner progress effectively.',
           order: 2,
-          durationMinutes: 75,
           deadlineDays: 7,
           mediaType: 'VIDEO',
           mediaUrl: '',
@@ -44,7 +42,6 @@ async function main() {
           title: 'Emotional Regulation and Wellbeing Support',
           description: 'Build strategies for supporting learner wellbeing and regulation.',
           order: 3,
-          durationMinutes: 60,
           deadlineDays: 7,
           mediaType: 'VIDEO',
           mediaUrl: '',
@@ -54,7 +51,6 @@ async function main() {
           title: 'Safeguarding and Data Ethics',
           description: 'Apply safeguarding principles and data ethics in the ALS ecosystem.',
           order: 4,
-          durationMinutes: 60,
           deadlineDays: 7,
           mediaType: 'VIDEO',
           mediaUrl: '',
@@ -64,7 +60,6 @@ async function main() {
           title: 'Human-led, AI-supported Decision Making',
           description: 'Blend professional judgment with AI-assisted insights responsibly.',
           order: 5,
-          durationMinutes: 70,
           deadlineDays: 7,
           mediaType: 'VIDEO',
           mediaUrl: '',
@@ -78,9 +73,36 @@ async function main() {
   if (pricingCount === 0) {
     await prisma.packagePrice.createMany({
       data: [
-        { packageType: 'SINGLE', amount: 50, currency: 'USD' },
-        { packageType: 'GROUP', amount: 100, currency: 'USD' },
-        { packageType: 'INSTITUTION', amount: 200, currency: 'USD' }
+        {
+          packageType: 'SINGLE',
+          amount: 50,
+          currency: 'USD',
+          maxUsers: 1,
+          label: 'Single User',
+          summary: 'Ideal for individual Academic Guides who want certification and personal tracking.',
+          features: ['Personal dashboard', 'All 5 modules', 'Certification included', 'No annual subscription'],
+          highlight: false
+        },
+        {
+          packageType: 'GROUP',
+          amount: 100,
+          currency: 'USD',
+          maxUsers: 5,
+          label: 'Group',
+          summary: 'Best for small teams that need a shared learning plan and consistent standards.',
+          features: ['Group admin access', 'Bulk user upload', 'Team progress view', 'Certification included'],
+          highlight: true
+        },
+        {
+          packageType: 'INSTITUTION',
+          amount: 200,
+          currency: 'USD',
+          maxUsers: 10,
+          label: 'Institution',
+          summary: 'Built for institutions that need scalable onboarding and quality assurance.',
+          features: ['Institution admin access', 'Bulk user upload', 'QA reporting', 'Certification included'],
+          highlight: false
+        }
       ]
     });
   }

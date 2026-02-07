@@ -16,4 +16,13 @@ export class OrganizationsController {
 
     return this.organizationsService.getOrganizationWithStats(user.organizationId);
   }
+
+  @Get('me/certified-learners')
+  async getMyCertifiedLearners(@CurrentUser() user: { organizationId?: string }) {
+    if (!user.organizationId) {
+      return [];
+    }
+
+    return this.organizationsService.getCertifiedLearners(user.organizationId);
+  }
 }

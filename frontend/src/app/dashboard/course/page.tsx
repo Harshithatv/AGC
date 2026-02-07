@@ -130,8 +130,7 @@ export default function DashboardCoursePage() {
                           <h4 className="text-base font-semibold text-slate-900">{moduleItem.title}</h4>
                           <p className="mt-1 text-sm text-slate-600">{moduleItem.description}</p>
                           <p className="mt-2 text-xs text-slate-500">
-                            {moduleItem.mediaType === 'PRESENTATION' ? 'Presentation' : 'Video'} ·{' '}
-                            {moduleItem.durationMinutes} mins
+                            {moduleItem.mediaType === 'PDF' ? 'PDF' : 'Video'}
                           </p>
                         </div>
                       </div>
@@ -191,10 +190,10 @@ export default function DashboardCoursePage() {
             <p className="mt-2 text-sm text-slate-600">{selectedModule?.description}</p>
             <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
               {selectedModule?.mediaUrl ? (
-                selectedModule.mediaType === 'PRESENTATION' ? (
+                selectedModule.mediaType === 'PDF' ? (
                   <iframe
                     src={resolveMediaUrl(selectedModule.mediaUrl)}
-                    title="Presentation"
+                    title="PDF Document"
                     className="h-72 w-full"
                   />
                 ) : (

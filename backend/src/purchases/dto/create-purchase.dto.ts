@@ -1,9 +1,9 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
-import { OrganizationType } from '@prisma/client';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreatePurchaseDto {
-  @IsEnum(OrganizationType)
-  packageType: OrganizationType;
+  @IsString()
+  @IsNotEmpty()
+  packageType: string;
 
   @IsString()
   organizationName: string;

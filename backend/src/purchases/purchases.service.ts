@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { OrganizationType, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 
-const MAX_USERS_BY_TYPE: Record<OrganizationType, number> = {
-  [OrganizationType.SINGLE]: 1,
-  [OrganizationType.GROUP]: 5,
-  [OrganizationType.INSTITUTION]: 10
+const MAX_USERS_BY_TYPE: Record<string, number> = {
+  SINGLE: 1,
+  GROUP: 5,
+  INSTITUTION: 10
 };
 
 @Injectable()
@@ -18,7 +18,7 @@ export class PurchasesService {
   }
 
   async createPurchase(params: {
-    packageType: OrganizationType;
+    packageType: string;
     organizationName: string;
     adminName: string;
     adminEmail: string;
@@ -37,7 +37,7 @@ export class PurchasesService {
     let organizationName = params.organizationName;
     let adminName = params.adminName;
 
-    if (params.packageType === OrganizationType.INSTITUTION) {
+    if (params.packageType === 'INSTITUTION') {
       if (!params.instituteName) {
         throw new BadRequestException('Institute name is required for institution packages');
       }
@@ -50,17 +50,26 @@ export class PurchasesService {
     const passwordHash = await bcrypt.hash(params.adminPassword, 10);
 
     return this.prisma.$transaction(async (tx) => {
+      const price = await tx.packagePrice.findUnique({
+        where: { packageType: params.packageType }
+      });
+
+      if (!price && !MAX_USERS_BY_TYPE[params.packageType]) {
+        throw new BadRequestException('Package not found');
+      }
+
+      const maxUsers = price?.maxUsers ?? MAX_USERS_BY_TYPE[params.packageType] ?? 1;
+
       const organization = await tx.organization.create({
         data: {
           name: organizationName,
           type: params.packageType,
-          maxUsers: MAX_USERS_BY_TYPE[params.packageType],
+          maxUsers,
           startDate: new Date()
         }
       });
 
-      const assignedRole =
-        params.packageType === OrganizationType.SINGLE ? Role.ORG_USER : Role.ORG_ADMIN;
+      const assignedRole = maxUsers <= 1 ? Role.ORG_USER : Role.ORG_ADMIN;
 
       const admin = await tx.user.create({
         data: {

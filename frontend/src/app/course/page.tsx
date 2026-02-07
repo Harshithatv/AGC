@@ -5,13 +5,60 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { getCertificate, getMyModules } from '@/lib/api';
+import { getCertificate, getMyModules, changePassword } from '@/lib/api';
 
 export default function CoursePortalPage() {
   const router = useRouter();
   const { user, token, logout, ready } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
   const [certificate, setCertificate] = useState<any>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError('All fields are required');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await changePassword(token!, passwordForm.currentPassword, passwordForm.newPassword);
+      setPasswordSuccess('Password changed successfully!');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordSuccess('');
+      }, 2000);
+    } catch (err: any) {
+      setPasswordError(err.message || 'Failed to change password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!ready) {
@@ -98,46 +145,81 @@ export default function CoursePortalPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Image src="/images/logo.svg" alt="AGC logo" width={40} height={40} />
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Image src="/images/logo.svg" alt="AGC logo" width={36} height={36} className="h-8 w-8 sm:h-10 sm:w-10" />
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Academic Guide Course</p>
-              <h1 className="text-lg font-semibold text-slate-900">Learner Portal</h1>
+              <p className="hidden text-xs uppercase tracking-wide text-slate-400 sm:block">Academic Guide Course</p>
+              <h1 className="text-sm font-semibold text-slate-900 sm:text-lg">Learner Portal</h1>
             </div>
           </div>
-          <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
+          <nav className="hidden items-center gap-6 text-sm text-slate-600 lg:flex">
             <a href="#program" className="hover:text-ocean-600">Programme</a>
             <a href="#modules" className="hover:text-ocean-600">Modules</a>
             <a href="#how-it-works" className="hover:text-ocean-600">How it works</a>
             <a href="#certification" className="hover:text-ocean-600">Certification</a>
             <a href="#contact" className="hover:text-ocean-600">Contact</a>
           </nav>
-          <div className="relative">
-            <details className="group">
-              <summary className="list-none cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-sm font-semibold text-slate-700">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm">
-                  👤
-                </span>
-              </summary>
-              <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-md">
-                <div className="px-3 py-2 text-sm">
-                  <p className="font-semibold text-slate-800">{user?.name || 'Learner'}</p>
-                  <p className="text-xs text-slate-500">{user?.email || ''}</p>
+          <div className="flex items-center gap-2">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 lg:hidden"
+            >
+              {mobileMenuOpen ? (
+                <svg className="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+            <div className="relative">
+              <details className="group">
+                <summary className="list-none cursor-pointer rounded-full border border-slate-200 bg-white p-1.5 text-sm font-semibold text-slate-700 sm:p-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm sm:h-8 sm:w-8">
+                    👤
+                  </span>
+                </summary>
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-md">
+                  <div className="px-3 py-2 text-sm">
+                    <p className="font-semibold text-slate-800">{user?.name || 'Learner'}</p>
+                    <p className="truncate text-xs text-slate-500">{user?.email || ''}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowPasswordModal(true)}
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    🔐 Change Password
+                  </button>
+                  <button
+                    onClick={() => {
+                      logout();
+                      router.push('/');
+                    }}
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    logout();
-                    router.push('/');
-                  }}
-                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                >
-                  Logout
-                </button>
-              </div>
-            </details>
+              </details>
+            </div>
           </div>
         </div>
+        {/* Mobile Navigation */}
+        {mobileMenuOpen && (
+          <div className="border-t border-slate-100 bg-white px-4 py-3 lg:hidden">
+            <nav className="flex flex-col gap-1">
+              <a href="#program" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Programme</a>
+              <a href="#modules" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Modules</a>
+              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">How it works</a>
+              <a href="#certification" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Certification</a>
+              <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Contact</a>
+            </nav>
+          </div>
+        )}
       </header>
 
       <section className="mx-auto w-full max-w-6xl px-6 py-12" id="program">
@@ -566,6 +648,156 @@ export default function CoursePortalPage() {
           </div>
         </div>
       </footer>
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <button
+              onClick={() => {
+                setShowPasswordModal(false);
+                setPasswordError('');
+                setPasswordSuccess('');
+                setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                setShowCurrentPassword(false);
+                setShowNewPassword(false);
+                setShowConfirmPassword(false);
+              }}
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-slate-900">Change Password</h3>
+              <p className="mt-1 text-sm text-slate-500">Enter your current password and choose a new one</p>
+            </div>
+
+            {passwordError && (
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{passwordError}</div>
+            )}
+
+            {passwordSuccess && (
+              <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-600">{passwordSuccess}</div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Current Password</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 px-4 py-2.5 pr-12 text-sm focus:border-ocean-500 focus:outline-none focus:ring-1 focus:ring-ocean-500"
+                    placeholder="Enter current password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showCurrentPassword ? (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700">New Password</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 px-4 py-2.5 pr-12 text-sm focus:border-ocean-500 focus:outline-none focus:ring-1 focus:ring-ocean-500"
+                    placeholder="Enter new password (min 6 characters)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showNewPassword ? (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Confirm New Password</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 px-4 py-2.5 pr-12 text-sm focus:border-ocean-500 focus:outline-none focus:ring-1 focus:ring-ocean-500"
+                    placeholder="Confirm new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showConfirmPassword ? (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordError('');
+                  setPasswordSuccess('');
+                  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                  setShowCurrentPassword(false);
+                  setShowNewPassword(false);
+                  setShowConfirmPassword(false);
+                }}
+                className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={passwordLoading}
+                className="flex-1 rounded-lg bg-ocean-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-ocean-700 disabled:opacity-50"
+              >
+                {passwordLoading ? 'Changing...' : 'Change Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

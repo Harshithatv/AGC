@@ -25,7 +25,6 @@ type OrganizationUser = {
   id: string;
   name: string;
   email: string;
-  role: string;
   createdAt: string;
   progress: UserProgress;
   certificate: { issuedAt: string } | null;
@@ -37,6 +36,7 @@ export default function AdminOrganizationUsersPage() {
   const { user, token } = useAuth();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [users, setUsers] = useState<OrganizationUser[]>([]);
+  const cleanGroupSuffix = (value?: string) => (value ? value.replace(/\s+Group$/i, '') : '');
 
   useEffect(() => {
     if (!token || !user) return;
@@ -61,11 +61,11 @@ export default function AdminOrganizationUsersPage() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Account profile</p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-              {organization?.name || 'Account'}
+              {cleanGroupSuffix(organization?.name) || 'Account'}
             </h2>
-            {/* <p className="mt-2 text-sm text-slate-600">
-              {organization?.type ?? '-'} package · Users: {users.length}/{organization?.maxUsers ?? 0}
-            </p> */}
+            <p className="mt-2 text-sm text-slate-600">
+              Users: {users.length}/{organization?.maxUsers ?? 0}
+            </p>
             {primaryPurchase ? (
               <p className="mt-1 text-xs text-slate-500">
                 Latest purchase: {new Date(primaryPurchase).toLocaleDateString()}
@@ -99,7 +99,6 @@ export default function AdminOrganizationUsersPage() {
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{member.name}</p>
                     <p className="text-xs text-slate-500">{member.email}</p>
-                    {/* <p className="mt-1 text-xs text-slate-400">{member.role}</p> */}
                   </div>
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-semibold ${

@@ -8,26 +8,22 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getPricing } from '@/lib/api';
 
-const packageOptions = [
-  {
+const defaultOrder = ['SINGLE', 'GROUP', 'INSTITUTION'];
+
+const defaultMeta = {
+  SINGLE: {
     label: 'Single User',
-    value: 'SINGLE',
-    users: '1 user',
     summary: 'Best for individual Academic Guides.'
   },
-  {
+  GROUP: {
     label: 'Group',
-    value: 'GROUP',
-    users: 'Up to 5 users',
     summary: 'For teams needing shared oversight.'
   },
-  {
+  INSTITUTION: {
     label: 'Institution',
-    value: 'INSTITUTION',
-    users: 'Up to 10 users',
     summary: 'For institutions scaling training.'
   }
-];
+} as const;
 
 const roleOptions = [
   'Principal',
@@ -37,7 +33,7 @@ const roleOptions = [
   'Instructional Lead'
 ];
 
-type PackageType = 'SINGLE' | 'GROUP' | 'INSTITUTION';
+type PackageType = string;
 
 type DetailsForm = {
   packageType: PackageType;
@@ -65,12 +61,22 @@ export default function PurchaseDetailsPage() {
   const router = useRouter();
 
   const [form, setForm] = useState<DetailsForm>(initialForm);
-  const [pricing, setPricing] = useState<Array<{ packageType: string; amount: number; currency: string }>>([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [pricing, setPricing] = useState<
+    Array<{
+      packageType: string;
+      amount: number;
+      currency: string;
+      maxUsers?: number;
+      label?: string;
+      summary?: string;
+    }>
+  >([]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const selectedFromUrl = (params.get('package') || '').toUpperCase();
-    if (selectedFromUrl === 'SINGLE' || selectedFromUrl === 'GROUP' || selectedFromUrl === 'INSTITUTION') {
+    if (selectedFromUrl) {
       setForm((prev) => ({ ...prev, packageType: selectedFromUrl as PackageType }));
     }
   }, []);
@@ -81,24 +87,50 @@ export default function PurchaseDetailsPage() {
       .catch(() => setPricing([]));
   }, []);
 
-  const selectedPackage = useMemo(
-    () => packageOptions.find((option) => option.value === form.packageType),
-    [form.packageType]
-  );
-
   const pricingMap = useMemo(() => {
-    const map = new Map<string, { amount: number; currency: string }>();
-    pricing.forEach((item) => map.set(item.packageType, { amount: item.amount, currency: item.currency }));
+    const map = new Map<string, { amount: number; currency: string; maxUsers?: number; label?: string; summary?: string }>();
+    pricing.forEach((item) =>
+      map.set(item.packageType, {
+        amount: item.amount,
+        currency: item.currency,
+        maxUsers: item.maxUsers,
+        label: item.label,
+        summary: item.summary
+      })
+    );
     return map;
   }, [pricing]);
+
+  const packageOptions = useMemo(() => {
+    if (pricing.length === 0) {
+      return defaultOrder.map((value) => ({ value }));
+    }
+    const listed = new Set<string>();
+    const ordered = defaultOrder
+      .filter((value) => pricingMap.has(value))
+      .map((value) => {
+        listed.add(value);
+        return { value };
+      });
+    const extras = pricing
+      .map((item) => item.packageType)
+      .filter((value) => !listed.has(value))
+      .map((value) => ({ value }));
+    return [...ordered, ...extras];
+  }, [pricing, pricingMap]);
+
+  const selectedPackage = useMemo(
+    () => packageOptions.find((option) => option.value === form.packageType),
+    [form.packageType, packageOptions]
+  );
 
   const formatPrice = (type: string) => {
     const item =
       pricingMap.get(type) ||
       ({
-        SINGLE: { amount: 50, currency: 'USD' },
-        GROUP: { amount: 100, currency: 'USD' },
-        INSTITUTION: { amount: 200, currency: 'USD' }
+        SINGLE: { amount: 50, currency: 'USD', maxUsers: 1 },
+        GROUP: { amount: 100, currency: 'USD', maxUsers: 5 },
+        INSTITUTION: { amount: 200, currency: 'USD', maxUsers: 10 }
       } as const)[type as 'SINGLE' | 'GROUP' | 'INSTITUTION'];
     if (!item) return '$0';
     const formatter = new Intl.NumberFormat('en-US', {
@@ -107,6 +139,31 @@ export default function PurchaseDetailsPage() {
       maximumFractionDigits: 0
     });
     return formatter.format(item.amount);
+  };
+
+  const formatUsers = (type: string) => {
+    const item =
+      pricingMap.get(type) ||
+      ({
+        SINGLE: { maxUsers: 1 },
+        GROUP: { maxUsers: 5 },
+        INSTITUTION: { maxUsers: 10 }
+      } as const)[type as 'SINGLE' | 'GROUP' | 'INSTITUTION'];
+    if (!item?.maxUsers) return 'Users';
+    if (item.maxUsers === 1) return '1 user';
+    return `Up to ${item.maxUsers} users`;
+  };
+
+  const formatLabel = (type: string) => {
+    const item = pricingMap.get(type);
+    const fallback = defaultMeta[type as 'SINGLE' | 'GROUP' | 'INSTITUTION'];
+    return item?.label || fallback?.label || type;
+  };
+
+  const formatSummary = (type: string) => {
+    const item = pricingMap.get(type);
+    const fallback = defaultMeta[type as 'SINGLE' | 'GROUP' | 'INSTITUTION'];
+    return item?.summary || fallback?.summary || 'Package description';
   };
 
   const handleChange = (field: keyof DetailsForm, value: string | boolean) => {
@@ -169,16 +226,16 @@ export default function PurchaseDetailsPage() {
                       onChange={() => handleChange('packageType', option.value)}
                       className="sr-only"
                     />
-                    <p className="font-semibold text-slate-900">{option.label}</p>
-                    <p className="text-xs text-ocean-600">{option.users}</p>
+                    <p className="font-semibold text-slate-900">{formatLabel(option.value)}</p>
+                    <p className="text-xs text-ocean-600">{formatUsers(option.value)}</p>
                     <p className="mt-2 text-sm font-semibold text-slate-900">{formatPrice(option.value)}</p>
-                    <p className="mt-2 text-xs text-slate-500">{option.summary}</p>
+                    {/* <p className="mt-2 text-xs text-slate-500">{formatSummary(option.value)}</p> */}
                   </label>
                 ))}
               </div>
               <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 p-4 text-xs text-slate-500">
                 <span>
-                  Selected: <span className="font-semibold text-slate-700">{selectedPackage?.label}</span>
+                  Selected: <span className="font-semibold text-slate-700">{formatLabel(form.packageType)}</span>
                 </span>
                 <span className="font-semibold text-slate-700">{formatPrice(form.packageType)}</span>
               </div>
@@ -240,14 +297,32 @@ export default function PurchaseDetailsPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Password</label>
-                  <input
-                    required
-                    type="password"
-                    value={form.password}
-                    onChange={(event) => handleChange('password', event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-2"
-                    placeholder="Create a secure password"
-                  />
+                  <div className="relative">
+                    <input
+                      required
+                      type={showPassword ? 'text' : 'password'}
+                      value={form.password}
+                      onChange={(event) => handleChange('password', event.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-4 py-2 pr-12"
+                      placeholder="Create a secure password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? (
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
               <label className="mt-6 flex items-start gap-3 text-sm text-slate-600">

@@ -1,13 +1,35 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
-import { OrganizationType } from '@prisma/client';
+import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpdatePricingDto {
-  @IsEnum(OrganizationType)
-  packageType: OrganizationType;
+  @IsString()
+  @IsNotEmpty()
+  packageType: string;
 
   @IsInt()
   @Min(0)
   amount: number;
+
+  @IsOptional()
+  @IsString()
+  label?: string;
+
+  @IsOptional()
+  @IsString()
+  summary?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  features?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  highlight?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxUsers?: number;
 
   @IsOptional()
   @IsString()

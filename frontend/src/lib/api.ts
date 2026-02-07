@@ -51,6 +51,12 @@ function mapToFriendlyMessage(status: number, rawMessage: string) {
   if (message.includes('password must be a string')) {
     return 'Password is required.';
   }
+  if (message.includes('cannot be deleted')) {
+    return 'This package cannot be deleted because it is already in use.';
+  }
+  if (message.includes('package not found')) {
+    return 'Package not found.';
+  }
 
   return status >= 400 && status < 500
     ? 'Please check your details and try again.'
@@ -110,7 +116,7 @@ export function login(email: string, password: string) {
 }
 
 export function purchasePackage(payload: {
-  packageType: 'SINGLE' | 'GROUP' | 'INSTITUTION';
+  packageType: string;
   organizationName: string;
   adminName: string;
   adminEmail: string;
@@ -141,8 +147,22 @@ export function startModule(token: string, moduleId: string) {
   });
 }
 
+export function startModuleFile(token: string, moduleId: string, fileId: string) {
+  return request(`/modules/${moduleId}/files/${fileId}/start`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 export function completeModule(token: string, moduleId: string) {
   return request(`/modules/me/${moduleId}/complete`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function completeModuleFile(token: string, moduleId: string, fileId: string) {
+  return request(`/modules/${moduleId}/files/${fileId}/complete`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -221,6 +241,24 @@ export function listAdminPurchases(token: string) {
   });
 }
 
+export function getCertificationStats(token: string) {
+  return request('/admin/certification-stats', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function getCertifiedLearners(token: string) {
+  return request('/admin/certified-learners', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function getOrgCertifiedLearners(token: string) {
+  return request('/organizations/me/certified-learners', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 export function listAllModules(token: string) {
   return request('/modules', {
     headers: { Authorization: `Bearer ${token}` }
@@ -234,10 +272,14 @@ export function updateModule(
     title?: string;
     description?: string;
     order?: number;
-    durationMinutes?: number;
     deadlineDays?: number;
-    mediaType?: 'VIDEO' | 'PRESENTATION';
+    mediaType?: 'VIDEO' | 'PDF';
     mediaUrl?: string;
+    filesToAdd?: Array<{
+      title?: string;
+      mediaType: 'VIDEO' | 'PDF';
+      mediaUrl: string;
+    }>;
   }
 ) {
   return request(`/modules/${id}`, {
@@ -254,10 +296,17 @@ export function deleteModule(token: string, id: string) {
   });
 }
 
+export function deleteModuleFile(token: string, moduleId: string, fileId: string) {
+  return request(`/modules/${moduleId}/files/${fileId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
 export async function uploadModuleFile(
   token: string,
   file: File,
-  payload?: { moduleId?: string; mediaType?: 'VIDEO' | 'PRESENTATION' }
+  payload?: { moduleId?: string; mediaType?: 'VIDEO' | 'PDF'; order?: number; title?: string }
 ) {
   const formData = new FormData();
   formData.append('file', file);
@@ -266,6 +315,12 @@ export async function uploadModuleFile(
   }
   if (payload?.mediaType) {
     formData.append('mediaType', payload.mediaType);
+  }
+  if (payload?.order) {
+    formData.append('order', String(payload.order));
+  }
+  if (payload?.title) {
+    formData.append('title', payload.title);
   }
 
   const res = await fetch(`${API_URL}/modules/upload`, {
@@ -293,12 +348,28 @@ export function listAdminPricing(token: string) {
 
 export function updatePricing(
   token: string,
-  payload: { packageType: 'SINGLE' | 'GROUP' | 'INSTITUTION'; amount: number; currency?: string }
+  payload: {
+    packageType: string;
+    amount: number;
+    currency?: string;
+    maxUsers?: number;
+    label?: string;
+    summary?: string;
+    features?: string[];
+    highlight?: boolean;
+  }
 ) {
   return request('/admin/pricing', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload)
+  });
+}
+
+export function deletePricing(token: string, packageType: string) {
+  return request(`/admin/pricing/${encodeURIComponent(packageType)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
   });
 }
 
@@ -320,15 +391,52 @@ export function createModule(
     title: string;
     description: string;
     order: number;
-    durationMinutes: number;
     deadlineDays: number;
-    mediaType: 'VIDEO' | 'PRESENTATION';
+    mediaType: 'VIDEO' | 'PDF';
     mediaUrl: string;
+    files?: Array<{
+      order: number;
+      title?: string;
+      mediaType: 'VIDEO' | 'PDF';
+      mediaUrl: string;
+    }>;
   }
 ) {
   return request('/modules', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload)
+  });
+}
+
+export function changePassword(
+  token: string,
+  currentPassword: string,
+  newPassword: string
+) {
+  return request<{ success: boolean; message: string }>('/users/change-password', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+}
+
+export function forgotPassword(email: string) {
+  return request<{ success: boolean; message: string }>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email })
+  });
+}
+
+export function resetPassword(token: string, newPassword: string) {
+  return request<{ success: boolean; message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword })
+  });
+}
+
+export function verifyResetToken(token: string) {
+  return request<{ valid: boolean; email?: string }>(`/auth/verify-reset-token?token=${encodeURIComponent(token)}`, {
+    method: 'GET'
   });
 }

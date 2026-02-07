@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
@@ -53,8 +53,20 @@ export class AdminController {
     return this.adminService.updatePricing({
       packageType: body.packageType,
       amount: body.amount,
+      maxUsers: body.maxUsers,
+      label: body.label,
+      summary: body.summary,
+      features: body.features,
+      highlight: body.highlight,
       currency: body.currency
     });
+  }
+
+  @Delete('pricing/:packageType')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SYSTEM_ADMIN)
+  async deletePricing(@Param('packageType') packageType: string) {
+    return this.adminService.deletePricing(packageType);
   }
 
   @Get('organizations/:id')
@@ -76,5 +88,19 @@ export class AdminController {
   @Roles(Role.SYSTEM_ADMIN)
   async getUserProgress(@Param('id') id: string) {
     return this.adminService.getUserProgressDetails(id);
+  }
+
+  @Get('certification-stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SYSTEM_ADMIN)
+  async getCertificationStats() {
+    return this.adminService.getCertificationStats();
+  }
+
+  @Get('certified-learners')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SYSTEM_ADMIN)
+  async getCertifiedLearners() {
+    return this.adminService.getCertifiedLearners();
   }
 }

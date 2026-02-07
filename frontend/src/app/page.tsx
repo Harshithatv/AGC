@@ -44,22 +44,22 @@ const deliverables = [
 export default function HomePage() {
   return (
     <div className="bg-white">
-      <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-24 md:min-h-[70vh] md:grid-cols-2">
-        <div className="space-y-6">
-          <span className="rounded-full bg-ocean-50 px-4 py-1 text-sm font-medium text-ocean-700">
+      <section className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-12 sm:gap-12 sm:px-6 sm:py-24 md:min-h-[70vh] md:grid-cols-2">
+        <div className="space-y-4 sm:space-y-6">
+          <span className="inline-block rounded-full bg-ocean-50 px-3 py-1 text-xs font-medium text-ocean-700 sm:px-4 sm:text-sm">
             Academic Guide Course & Certification
           </span>
-          <h1 className="text-4xl font-semibold leading-tight text-slate-900 md:text-5xl">
+          <h1 className="text-3xl font-semibold leading-tight text-slate-900 sm:text-4xl md:text-5xl">
             A professional development pathway for Academic Guides
           </h1>
-          <p className="text-lg text-slate-600">
+          <p className="text-base text-slate-600 sm:text-lg">
             A structured, module-based programme that shifts educators from traditional instruction to
             guidance, observation, facilitation, and adaptive learning design.
           </p>
           <div className="flex">
             <Link
               href="/packages"
-              className="rounded-xl bg-ocean-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-ocean-200 transition hover:bg-ocean-700"
+              className="rounded-xl bg-ocean-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-ocean-200 transition hover:bg-ocean-700 sm:px-6 sm:py-3"
             >
               Get Started
             </Link>
@@ -71,14 +71,14 @@ export default function HomePage() {
             alt="Academic Guide Course overview"
             width={960}
             height={640}
-            className="rounded-3xl shadow-xl"
+            className="rounded-2xl shadow-xl sm:rounded-3xl"
           />
         </div>
       </section>
 
       <section className="bg-slate-50">
-        <div className="mx-auto w-full max-w-6xl px-6 py-16">
-          <div className="rounded-3xl border border-slate-100 bg-gradient-to-br from-ocean-50 via-white to-blue-50 p-10 shadow-sm">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
+          <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-ocean-50 via-white to-blue-50 p-5 shadow-sm sm:rounded-3xl sm:p-10">
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Programme purpose</p>
@@ -109,18 +109,18 @@ export default function HomePage() {
       </section>
 
       <section className="bg-slate-50">
-        <div className="mx-auto w-full max-w-6xl px-6 py-16">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-ocean-600">How it works</p>
-              <h2 className="mt-2 text-3xl font-semibold text-slate-900">A simple, guided pathway</h2>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600 sm:text-sm">How it works</p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">A simple, guided pathway</h2>
             </div>
-            <p className="max-w-md text-sm text-slate-600">
+            <p className="max-w-md text-xs text-slate-600 sm:text-sm">
               Clear steps from purchase to certification with built-in module sequencing.
             </p>
           </div>
 
-          <div className="mt-8 grid gap-6 md:grid-cols-4">
+          <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-6 md:grid-cols-4">
             {steps.map((step, index) => (
               <div
                 key={step.title}

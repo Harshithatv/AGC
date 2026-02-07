@@ -2,13 +2,35 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { listAdminPricing, updatePricing, getOrganization, getPricing } from '@/lib/api';
+import { deletePricing, listAdminPricing, updatePricing, getOrganization, getPricing } from '@/lib/api';
 
 export default function DashboardPackagesPage() {
   const { user, token } = useAuth();
   const [adminPricing, setAdminPricing] = useState<any[]>([]);
   const [org, setOrg] = useState<any>(null);
   const [publicPricing, setPublicPricing] = useState<any[]>([]);
+  const [editingPackage, setEditingPackage] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const defaultMeta: Record<string, { label: string; summary: string; features: string[]; highlight?: boolean }> = {
+    SINGLE: {
+      label: 'Single User',
+      summary: 'Ideal for individual Academic Guides who want certification and personal tracking.',
+      features: ['Personal dashboard', 'All 5 modules', 'Certification included', 'No annual subscription'],
+      highlight: false
+    },
+    GROUP: {
+      label: 'Group',
+      summary: 'Best for small teams that need a shared learning plan and consistent standards.',
+      features: ['Group admin access', 'Bulk user upload', 'Team progress view', 'Certification included'],
+      highlight: true
+    },
+    INSTITUTION: {
+      label: 'Institution',
+      summary: 'Built for institutions that need scalable onboarding and quality assurance.',
+      features: ['Institution admin access', 'Bulk user upload', 'QA reporting', 'Certification included'],
+      highlight: false
+    }
+  };
 
   const formatCurrency = (amount: number, currency = 'USD') =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
@@ -28,17 +50,133 @@ export default function DashboardPackagesPage() {
     }
   }, [token, user]);
 
-  const handlePricingChange = (packageType: string, amount: number) => {
+  const handlePricingChange = (
+    packageType: string,
+    updates: {
+      amount?: number;
+      maxUsers?: number;
+      label?: string;
+      summary?: string;
+      features?: string[];
+      highlight?: boolean;
+      packageTypeOverride?: string;
+    }
+  ) => {
+    const { packageTypeOverride, ...rest } = updates;
     setAdminPricing((prev) =>
-      prev.map((item) => (item.packageType === packageType ? { ...item, amount } : item))
+      prev.map((item) =>
+        item.packageType === packageType
+          ? {
+              ...item,
+              ...rest,
+              ...(typeof packageTypeOverride === 'string'
+                ? { packageType: packageTypeOverride }
+                : {})
+            }
+          : item
+      )
     );
   };
 
-  const handleSavePricing = async (packageType: 'SINGLE' | 'GROUP' | 'INSTITUTION', amount: number, currency?: string) => {
+  const editingItem = adminPricing.find((item) => (item.id || item.packageType) === editingPackage) || null;
+
+  const handleSavePricing = async (
+    packageType: string,
+    payload: {
+      amount: number;
+      maxUsers?: number;
+      currency?: string;
+      label?: string;
+      summary?: string;
+      features?: string[];
+      highlight?: boolean;
+    }
+  ) => {
     if (!token) return;
-    await updatePricing(token, { packageType, amount, currency });
+    if (!packageType) return;
+    await updatePricing(token, { packageType, ...payload });
     const pricing = await listAdminPricing(token);
     setAdminPricing(pricing as any[]);
+    setEditingPackage(null);
+  };
+
+  const handleDeletePackage = async (packageType: string, isNew?: boolean) => {
+    if (!token) return;
+    setDeleteError('');
+    if (!packageType && isNew) {
+      setAdminPricing((prev) => prev.filter((item) => !item.isNew));
+      setEditingPackage(null);
+      return;
+    }
+    try {
+      await deletePricing(token, packageType);
+      const pricing = await listAdminPricing(token);
+      setAdminPricing(pricing as any[]);
+      setEditingPackage(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Unable to delete package.');
+    }
+  };
+
+  const handleAddPackage = () => {
+    const draftId = `new-${Date.now()}`;
+    setAdminPricing((prev) => [
+      ...prev,
+      {
+        id: draftId,
+        packageType: '',
+        amount: 0,
+        currency: 'USD',
+        maxUsers: 1,
+        label: '',
+        summary: '',
+        features: [''],
+        highlight: false,
+        isNew: true
+      }
+    ]);
+    setEditingPackage(draftId);
+  };
+
+  const applyDefaults = (packageType: string) => {
+    if (!packageType) return;
+    const meta = defaultMeta[packageType];
+    if (!meta) return;
+    setAdminPricing((prev) =>
+      prev.map((item) =>
+        item.packageType === packageType
+          ? {
+              ...item,
+              label: item.label || meta.label,
+              summary: item.summary || meta.summary,
+              features:
+                Array.isArray(item.features) && item.features.length > 0 ? item.features : [...meta.features],
+              highlight: typeof item.highlight === 'boolean' ? item.highlight : meta.highlight
+            }
+          : item
+      )
+    );
+  };
+
+  const handleFeatureChange = (packageType: string, index: number, value: string) => {
+    const current = adminPricing.find((item) => item.packageType === packageType);
+    const features = Array.isArray(current?.features) ? [...current.features] : [];
+    features[index] = value;
+    handlePricingChange(packageType, { features });
+  };
+
+  const handleAddFeature = (packageType: string) => {
+    const current = adminPricing.find((item) => item.packageType === packageType);
+    const features = Array.isArray(current?.features) ? [...current.features] : [];
+    features.push('');
+    handlePricingChange(packageType, { features });
+  };
+
+  const handleRemoveFeature = (packageType: string, index: number) => {
+    const current = adminPricing.find((item) => item.packageType === packageType);
+    const features = Array.isArray(current?.features) ? [...current.features] : [];
+    features.splice(index, 1);
+    handlePricingChange(packageType, { features });
   };
 
   const packagePrice = useMemo(() => {
@@ -56,31 +194,252 @@ export default function DashboardPackagesPage() {
       </div>
 
       {user.role === 'SYSTEM_ADMIN' ? (
-        <div className="grid gap-6 md:grid-cols-3">
-          {adminPricing.map((item) => (
-            <div key={item.packageType} className="rounded-2xl border border-slate-200 bg-white p-6">
-              <p className="text-sm text-slate-500">{item.packageType}</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">
-                {formatCurrency(item.amount, item.currency || 'USD')}
-              </p>
-              <div className="mt-4 flex items-center gap-2">
-                <input
-                  type="number"
-                  value={item.amount}
-                  onChange={(event) => handlePricingChange(item.packageType, Number(event.target.value))}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500">Manage pricing and package details.</p>
+            <button
+              onClick={handleAddPackage}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-ocean-300"
+            >
+              + Add package
+            </button>
+          </div>
+          {deleteError ? <p className="text-sm text-red-600">{deleteError}</p> : null}
+          <div className="space-y-4">
+            {adminPricing.map((item) => {
+              const itemKey = item.id || item.packageType;
+              const meta = defaultMeta[item.packageType];
+              const features = Array.isArray(item.features) ? item.features.filter(Boolean) : [];
+              const displayLabel = item.label || meta?.label || item.packageType || 'New package';
+              const displaySummary = item.summary || meta?.summary || 'Add a short description for this package.';
+              const displayFeatures = features.length > 0 ? features : meta?.features || [];
+              return (
+                <div key={itemKey} className="rounded-2xl border border-slate-200 bg-white p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Package</p>
+                      <p className="mt-2 text-xl font-semibold text-slate-900">{displayLabel}</p>
+                      {/* <p className="mt-1 text-xs text-slate-500">{item.packageType || 'Package code pending'}</p> */}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Price</p>
+                      <p className="mt-2 text-lg font-semibold text-slate-900">
+                        {formatCurrency(item.amount, item.currency || 'USD')}
+                      </p>
+                      {/* <p className="text-xs text-slate-500">Max users: {item.maxUsers ?? 'N/A'}</p> */}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          applyDefaults(item.packageType);
+                          setEditingPackage(itemKey);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-ocean-300"
+                      >
+                        ✎ Edit
+                      </button>
+                    <button
+  onClick={() => handleDeletePackage(item.packageType, item.isNew)}
+  className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 hover:border-rose-300 hover:bg-rose-50"
+  aria-label="Delete package"
+  title="Delete package"
+>
+  <svg
+    className="h-4 w-4"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 6h18" />
+    <path d="M8 6V4h8v2" />
+    <path d="M19 6l-1 14H6L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </svg>
+  Delete
+</button>
+                    </div>
+                  </div>
+
+                  {/* <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Description</p>
+                      <p className="mt-2">{displaySummary}</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Features</p>
+                      {displayFeatures.length > 0 ? (
+                        <ul className="mt-2 space-y-2">
+                          {displayFeatures.map((feature: string, index: number) => (
+                            <li key={`${itemKey}-feature-${index}`} className="flex items-start gap-2">
+                              <span className="mt-2 h-2 w-2 rounded-full bg-ocean-500" />
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-500">Add feature highlights for this package.</p>
+                      )}
+                    </div>
+                  </div> */}
+
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+      {user.role === 'SYSTEM_ADMIN' && editingItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-8">
+          <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Edit package</p>
+                <p className="mt-2 text-xl font-semibold text-slate-900">
+                  {editingItem.label || editingItem.packageType || 'New package'}
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingPackage(null)}
+                className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-ocean-300"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Package code
+                  <input
+                    type="text"
+                    value={editingItem.packageType ?? ''}
+                    onChange={(event) =>
+                      handlePricingChange(editingItem.packageType, { packageTypeOverride: event.target.value })
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700"
+                    placeholder="e.g., SINGLE"
+                    disabled={!editingItem.isNew}
+                  />
+                </label>
+                <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Label
+                  <input
+                    type="text"
+                    value={editingItem.label ?? ''}
+                    onChange={(event) => handlePricingChange(editingItem.packageType, { label: event.target.value })}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700"
+                    placeholder="Package label"
+                  />
+                </label>
+              </div>
+
+              <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Description
+                <textarea
+                  value={editingItem.summary ?? ''}
+                  onChange={(event) => handlePricingChange(editingItem.packageType, { summary: event.target.value })}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700"
+                  rows={3}
+                  placeholder="Short description"
                 />
+              </label>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Features</p>
+                <div className="mt-3 space-y-2">
+                  {(Array.isArray(editingItem.features) ? editingItem.features : []).map(
+                    (feature: string, index: number) => (
+                      <div key={`${editingItem.packageType}-feature-${index}`} className="flex items-center gap-2">
+                        <input
+                          value={feature}
+                          onChange={(event) => handleFeatureChange(editingItem.packageType, index, event.target.value)}
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                          placeholder={`Feature ${index + 1}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFeature(editingItem.packageType, index)}
+                          className="rounded-lg border border-slate-200 px-2 py-2 text-xs text-slate-500 hover:border-red-200 hover:text-red-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleAddFeature(editingItem.packageType)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-ocean-300"
+                  >
+                    + Add feature
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Amount
+                  <input
+                    type="number"
+                    value={editingItem.amount}
+                    onChange={(event) => handlePricingChange(editingItem.packageType, { amount: Number(event.target.value) })}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700"
+                    placeholder="Amount"
+                  />
+                </label>
+                <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Max users
+                  <input
+                    type="number"
+                    value={editingItem.maxUsers ?? ''}
+                    onChange={(event) => handlePricingChange(editingItem.packageType, { maxUsers: Number(event.target.value) })}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700"
+                    placeholder="Max users"
+                    min={1}
+                  />
+                </label>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editingItem.highlight)}
+                  onChange={(event) => handlePricingChange(editingItem.packageType, { highlight: event.target.checked })}
+                />
+                Highlight package
+              </label>
+
+              <div className="flex flex-wrap gap-2 pt-2">
                 <button
                   onClick={() =>
-                    handleSavePricing(item.packageType as 'SINGLE' | 'GROUP' | 'INSTITUTION', item.amount, item.currency)
+                    handleSavePricing(editingItem.packageType, {
+                      amount: editingItem.amount,
+                      maxUsers: typeof editingItem.maxUsers === 'number' ? editingItem.maxUsers : undefined,
+                      currency: editingItem.currency,
+                      label: editingItem.label,
+                      summary: editingItem.summary,
+                      features: Array.isArray(editingItem.features) ? editingItem.features : undefined,
+                      highlight: typeof editingItem.highlight === 'boolean' ? editingItem.highlight : undefined
+                    })
                   }
-                  className="rounded-xl bg-ocean-600 px-3 py-2 text-xs font-semibold text-white"
+                  className="rounded-xl bg-ocean-600 px-4 py-2 text-xs font-semibold text-white"
                 >
-                  Save
+                  Save changes
+                </button>
+             
+                <button
+                  onClick={() => setEditingPackage(null)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:border-ocean-300"
+                >
+                  Cancel
                 </button>
               </div>
             </div>
-          ))}
+          </div>
         </div>
       ) : null}
 

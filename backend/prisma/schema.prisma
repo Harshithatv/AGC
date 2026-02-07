@@ -13,12 +13,6 @@ enum Role {
   ORG_USER
 }
 
-enum OrganizationType {
-  SINGLE
-  GROUP
-  INSTITUTION
-}
-
 enum ModuleStatus {
   NOT_STARTED
   IN_PROGRESS
@@ -28,12 +22,14 @@ enum ModuleStatus {
 enum ModuleMediaType {
   VIDEO
   PRESENTATION
+  PDF
+  DOCUMENT
 }
 
 model Organization {
   id         String            @id @default(uuid())
   name       String
-  type       OrganizationType
+  type       String
   maxUsers   Int
   startDate  DateTime
   createdAt  DateTime          @default(now())
@@ -51,13 +47,14 @@ model User {
   organization Organization?    @relation(fields: [organizationId], references: [id])
   createdAt    DateTime         @default(now())
   progress     ModuleProgress[]
+  fileProgress ModuleFileProgress[]
   createdModules CourseModule[] @relation("CreatedModules")
   purchases    PackagePurchase[]
 }
 
 model PackagePurchase {
   id             String           @id @default(uuid())
-  packageType    OrganizationType
+  packageType    String
   purchasedAt    DateTime         @default(now())
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id])
@@ -67,8 +64,13 @@ model PackagePurchase {
 
 model PackagePrice {
   id          String           @id @default(uuid())
-  packageType OrganizationType @unique
+  packageType String           @unique
   amount      Int
+  maxUsers    Int              @default(1)
+  label       String?
+  summary     String?
+  features   Json?
+  highlight  Boolean          @default(false)
   currency    String           @default("INR")
   updatedAt   DateTime         @updatedAt
 }
@@ -78,7 +80,6 @@ model CourseModule {
   title            String
   description      String
   order            Int
-  durationMinutes  Int
   deadlineDays     Int
   mediaType        ModuleMediaType
   mediaUrl         String
@@ -86,6 +87,34 @@ model CourseModule {
   createdById      String
   createdBy        User             @relation("CreatedModules", fields: [createdById], references: [id])
   progress         ModuleProgress[]
+  files            ModuleFile[]
+}
+
+model ModuleFile {
+  id          String          @id @default(uuid())
+  moduleId    String
+  module      CourseModule    @relation(fields: [moduleId], references: [id])
+  order       Int
+  title       String?
+  mediaType   ModuleMediaType
+  mediaUrl    String
+  createdAt   DateTime        @default(now())
+  progress    ModuleFileProgress[]
+
+  @@unique([moduleId, order])
+}
+
+model ModuleFileProgress {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  moduleFileId String
+  moduleFile   ModuleFile    @relation(fields: [moduleFileId], references: [id])
+  status       ModuleStatus  @default(NOT_STARTED)
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  @@unique([userId, moduleFileId])
 }
 
 model ModuleProgress {
@@ -99,4 +128,13 @@ model ModuleProgress {
   completedAt DateTime?
 
   @@unique([userId, moduleId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

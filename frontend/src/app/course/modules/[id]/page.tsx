@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { completeModule, getCertificate, getMyModules, startModule } from '@/lib/api';
+import { completeModule, completeModuleFile, getCertificate, getMyModules, startModule, startModuleFile } from '@/lib/api';
 
 export default function ModuleViewerPage() {
   const params = useParams<{ id: string }>();
@@ -15,13 +15,11 @@ export default function ModuleViewerPage() {
   const [modules, setModules] = useState<any[]>([]);
   const [certificate, setCertificate] = useState<any>(null);
   const [showCertificatePopup, setShowCertificatePopup] = useState(false);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const resolveMediaUrl = (url: string) => (url.startsWith('http') ? url : `${apiBaseUrl}${url}`);
-  const getPresentationViewerUrl = (url: string) => {
-    const lower = url.toLowerCase();
-    if (lower.endsWith('.pdf')) {
-      return url;
-    }
+  const getPdfViewerUrl = (url: string) => {
     return `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
   };
 
@@ -46,6 +44,23 @@ export default function ModuleViewerPage() {
     [modules, moduleId]
   );
 
+  const moduleFiles = useMemo(() => moduleItem?.files ?? [], [moduleItem]);
+
+  const selectedFile = useMemo(() => {
+    if (!moduleFiles.length) return null;
+    if (selectedFileId) {
+      return moduleFiles.find((file: any) => file.id === selectedFileId) || moduleFiles[0];
+    }
+    return moduleFiles.find((file: any) => file.isActive) || moduleFiles[0];
+  }, [moduleFiles, selectedFileId]);
+
+  useEffect(() => {
+    if (moduleFiles.length && !selectedFileId) {
+      const next = moduleFiles.find((file: any) => file.isActive) || moduleFiles[0];
+      setSelectedFileId(next?.id ?? null);
+    }
+  }, [moduleFiles, selectedFileId]);
+
   const handleStart = async () => {
     if (!token || !moduleId) return;
     await startModule(token, moduleId);
@@ -66,6 +81,34 @@ export default function ModuleViewerPage() {
     setCertificate(certData as any);
     if (certData?.certificate && certData?.completedCount === certData?.totalModules) {
       setShowCertificatePopup(true);
+    }
+  };
+
+  const handleStartFile = async (fileId: string) => {
+    if (!token || !moduleId) return;
+    await startModuleFile(token, moduleId, fileId);
+    const moduleData = await getMyModules(token);
+    setModules(moduleData as any[]);
+  };
+
+  const handleCompleteFile = async (fileId: string) => {
+    if (!token || !moduleId) return;
+    await completeModuleFile(token, moduleId, fileId);
+    const moduleData = await getMyModules(token);
+    setModules(moduleData as any[]);
+    const certData = (await getCertificate(token)) as {
+      certificate?: { issuedTo: string; issuedEmail: string; issuedAt: string; program: string } | null;
+      completedCount?: number;
+      totalModules?: number;
+    };
+    setCertificate(certData as any);
+    if (certData?.certificate && certData?.completedCount === certData?.totalModules) {
+      setShowCertificatePopup(true);
+    }
+    const currentIndex = moduleFiles.findIndex((file: any) => file.id === fileId);
+    if (currentIndex >= 0 && currentIndex < moduleFiles.length - 1) {
+      const nextFile = moduleFiles[currentIndex + 1];
+      setSelectedFileId(nextFile?.id ?? null);
     }
   };
 
@@ -116,57 +159,84 @@ export default function ModuleViewerPage() {
         </div>
       ) : null}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Image src="/images/logo.svg" alt="AGC logo" width={40} height={40} />
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Image src="/images/logo.svg" alt="AGC logo" width={36} height={36} className="h-8 w-8 sm:h-10 sm:w-10" />
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Academic Guide Course</p>
-              <h1 className="text-lg font-semibold text-slate-900">Learner Portal</h1>
+              <p className="hidden text-xs uppercase tracking-wide text-slate-400 sm:block">Academic Guide Course</p>
+              <h1 className="text-sm font-semibold text-slate-900 sm:text-lg">Learner Portal</h1>
             </div>
           </div>
-          <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
+          <nav className="hidden items-center gap-6 text-sm text-slate-600 lg:flex">
             <Link href="/course#program" className="hover:text-ocean-600">Programme</Link>
             <Link href="/course/modules" className="hover:text-ocean-600">Modules</Link>
             <Link href="/course#how-it-works" className="hover:text-ocean-600">How it works</Link>
             <Link href="/course#certification" className="hover:text-ocean-600">Certification</Link>
             <Link href="/course#contact" className="hover:text-ocean-600">Contact</Link>
           </nav>
-          <div className="relative">
-            <details className="group">
-              <summary className="list-none cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-sm font-semibold text-slate-700">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm">👤</span>
-              </summary>
-              <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-md">
-                <div className="px-3 py-2 text-sm">
-                  <p className="font-semibold text-slate-800">{user?.name || 'Learner'}</p>
-                  <p className="text-xs text-slate-500">{user?.email || ''}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    logout();
-                    router.push('/');
-                  }}
-                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                >
-                  Logout
-                </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 lg:hidden"
+            >
+              {mobileMenuOpen ? (
+                <svg className="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+            <div className="relative">
+              <details className="group">
+                <summary className="list-none cursor-pointer rounded-full border border-slate-200 bg-white p-1.5 text-sm font-semibold text-slate-700 sm:p-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm sm:h-8 sm:w-8">👤</span>
+                </summary>
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-md">
+                  <div className="px-3 py-2 text-sm">
+                    <p className="font-semibold text-slate-800">{user?.name || 'Learner'}</p>
+                    <p className="truncate text-xs text-slate-500">{user?.email || ''}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      logout();
+                      router.push('/');
+                    }}
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
               </div>
             </details>
           </div>
+          </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="border-t border-slate-100 bg-white px-4 py-3 lg:hidden">
+            <nav className="flex flex-col gap-1">
+              <Link href="/course#program" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Programme</Link>
+              <Link href="/course/modules" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Modules</Link>
+              <Link href="/course#how-it-works" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">How it works</Link>
+              <Link href="/course#certification" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Certification</Link>
+              <Link href="/course#contact" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Contact</Link>
+            </nav>
+          </div>
+        )}
       </header>
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
-        <div className="rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6 lg:p-8">
+          <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">
                 Module {moduleItem?.order ?? '-'}
               </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+              <h2 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">
                 {moduleItem?.title || 'Module'}
               </h2>
-              <p className="mt-2 text-sm text-slate-600">{moduleItem?.description}</p>
+              <p className="mt-2 text-xs text-slate-600 sm:text-sm">{moduleItem?.description}</p>
             </div>
             <Link href="/course/modules" className="text-sm font-semibold text-ocean-600">
               ← Back to modules
@@ -174,24 +244,54 @@ export default function ModuleViewerPage() {
           </div>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-[2fr,1fr]">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-              {moduleItem?.mediaUrl ? (
-                moduleItem.mediaType === 'PRESENTATION' ? (
-                  <iframe
-                    src={getPresentationViewerUrl(resolveMediaUrl(moduleItem.mediaUrl))}
-                    title="Presentation"
-                    className="h-80 w-full"
-                  />
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                {selectedFile?.mediaUrl || moduleItem?.mediaUrl ? (
+                  (selectedFile?.mediaType || moduleItem?.mediaType) === 'VIDEO' ? (
+                    <video controls className="h-80 w-full object-cover">
+                      <source src={resolveMediaUrl(selectedFile?.mediaUrl || moduleItem?.mediaUrl)} />
+                    </video>
+                  ) : (
+                    <iframe
+                      src={getPdfViewerUrl(resolveMediaUrl(selectedFile?.mediaUrl || moduleItem?.mediaUrl))}
+                      title="Module file"
+                      className="h-80 w-full"
+                    />
+                  )
                 ) : (
-                  <video controls className="h-80 w-full object-cover">
-                    <source src={resolveMediaUrl(moduleItem.mediaUrl)} />
-                  </video>
-                )
-              ) : (
-                <div className="flex h-80 items-center justify-center text-sm text-slate-500">
-                  No media uploaded for this module.
+                  <div className="flex h-80 items-center justify-center text-sm text-slate-500">
+                    No media uploaded for this module.
+                  </div>
+                )}
+              </div>
+              {moduleFiles.length ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Module files</p>
+                  <div className="mt-3 space-y-2">
+                    {moduleFiles.map((file: any) => (
+                      <button
+                        key={file.id}
+                        onClick={() => file.isActive && setSelectedFileId(file.id)}
+                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm ${
+                          file.isActive
+                            ? 'border-slate-200 bg-white hover:border-ocean-300'
+                            : 'border-slate-100 bg-slate-50 text-slate-400'
+                        } ${selectedFile?.id === file.id ? 'border-ocean-400 bg-ocean-50' : ''}`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-500">#{file.order}</span>
+                          <span className="font-medium text-slate-900">
+                            {file.title || `${file.mediaType || 'File'}`}
+                          </span>
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {file.status?.replace('_', ' ') || 'Not started'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
+              ) : null}
             </div>
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Module status</p>
@@ -200,7 +300,28 @@ export default function ModuleViewerPage() {
               </p>
               <div className="mt-5 flex flex-col gap-3">
                 {moduleItem?.isActive ? (
-                  moduleItem.status === 'NOT_STARTED' ? (
+                  moduleFiles.length ? (
+                    selectedFile?.status === 'NOT_STARTED' ? (
+                      <button
+                        onClick={() => handleStartFile(selectedFile.id)}
+                        className="rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white"
+                      >
+                        Start file
+                      </button>
+                    ) : selectedFile?.status === 'IN_PROGRESS' ? (
+                      <button
+                        onClick={() => handleCompleteFile(selectedFile.id)}
+                        className="inline-flex items-center justify-center gap-2 rounded-full border border-ocean-200 bg-white px-3 py-2 text-xs font-semibold text-ocean-700"
+                      >
+                        <span>✅</span>
+                        Mark file completed
+                      </button>
+                    ) : (
+                      <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2 text-xs font-semibold text-emerald-700">
+                        File completed
+                      </div>
+                    )
+                  ) : moduleItem.status === 'NOT_STARTED' ? (
                     <button
                       onClick={handleStart}
                       className="rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white"

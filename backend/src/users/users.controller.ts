@@ -7,19 +7,30 @@ import { CurrentUser } from '../common/current-user.decorator';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { BulkUsersDto } from './dto/bulk-users.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @CurrentUser() user: { id: string },
+    @Body() body: ChangePasswordDto
+  ) {
+    return this.usersService.changePassword(user.id, body.currentPassword, body.newPassword);
+  }
+
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORG_ADMIN)
   async listUsers(@CurrentUser() user: { organizationId?: string }) {
     return this.usersService.listByOrganization(user.organizationId as string);
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORG_ADMIN)
   async createUser(
     @CurrentUser() user: { organizationId?: string },
@@ -42,6 +53,7 @@ export class UsersController {
   }
 
   @Post('bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORG_ADMIN)
   async bulkCreate(
     @CurrentUser() user: { organizationId?: string },
@@ -67,6 +79,7 @@ export class UsersController {
   }
 
   @Get(':id/progress')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORG_ADMIN)
   async getUserProgress(
     @CurrentUser() user: { organizationId?: string },

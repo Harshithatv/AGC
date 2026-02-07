@@ -13,7 +13,7 @@ const paymentOptions = [
 
 const STORAGE_KEY = 'agc_purchase_details';
 
-type PackageType = 'SINGLE' | 'GROUP' | 'INSTITUTION';
+type PackageType = string;
 
 type StoredDetails = {
   packageType: PackageType;
@@ -35,7 +35,15 @@ export default function PurchasePaymentPage() {
     expiry: '',
     cvc: ''
   });
-  const [pricing, setPricing] = useState<Array<{ packageType: string; amount: number; currency: string }>>([]);
+  const [pricing, setPricing] = useState<
+    Array<{
+      packageType: string;
+      amount: number;
+      currency: string;
+      maxUsers?: number;
+      label?: string;
+    }>
+  >([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,17 +65,29 @@ export default function PurchasePaymentPage() {
 
   const packageLabel = useMemo(() => {
     if (!details) return '';
-    if (details.packageType === 'GROUP') return 'Group';
-    if (details.packageType === 'INSTITUTION') return 'Institution';
-    return 'Single User';
-  }, [details]);
+    const fallback =
+      ({
+        SINGLE: 'Single User',
+        GROUP: 'Group',
+        INSTITUTION: 'Institution'
+      } as const)[details.packageType];
+    const item = pricing.find((price) => price.packageType === details.packageType);
+    return item?.label || fallback || details.packageType || 'Package';
+  }, [details, pricing]);
 
   const packageUsers = useMemo(() => {
     if (!details) return '';
-    if (details.packageType === 'GROUP') return 'Up to 5 users';
-    if (details.packageType === 'INSTITUTION') return 'Up to 10 users';
-    return 'Single user';
-  }, [details]);
+    const fallback = ({
+      SINGLE: 1,
+      GROUP: 5,
+      INSTITUTION: 10
+    } as const)[details.packageType];
+    const item = pricing.find((price) => price.packageType === details.packageType);
+    const maxUsers = item?.maxUsers ?? fallback;
+    if (!maxUsers) return 'Users';
+    if (maxUsers === 1) return '1 user';
+    return `Up to ${maxUsers} users`;
+  }, [details, pricing]);
 
   const formattedPrice = useMemo(() => {
     const fallback =
@@ -101,9 +121,7 @@ export default function PurchasePaymentPage() {
     const organizationName =
       details.packageType === 'INSTITUTION'
         ? details.instituteName
-        : details.packageType === 'GROUP'
-          ? `${details.fullName} Group`
-          : details.fullName;
+        : details.fullName;
 
     try {
       await purchasePackage({

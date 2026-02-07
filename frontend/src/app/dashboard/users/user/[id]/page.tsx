@@ -58,9 +58,9 @@ export default function AdminUserDetailsPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Learner profile</p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-900">{details.user.name}</h2>
             <p className="mt-2 text-sm text-slate-600">{details.user.email}</p>
-            {/* <p className="mt-1 text-xs text-slate-500">
-              {details.organization?.name || 'Account'} · {details.organization?.type || 'Unknown'} package
-            </p> */}
+            <p className="mt-1 text-xs text-slate-500">
+              {details.organization?.name || 'Account'}
+            </p>
           </div>
           <Link href="/dashboard/users" className="text-sm font-semibold text-ocean-600">
             ← Back to users

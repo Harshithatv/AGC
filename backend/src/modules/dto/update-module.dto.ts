@@ -1,5 +1,18 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 import { ModuleMediaType } from '@prisma/client';
+import { Type } from 'class-transformer';
+
+class UpdateModuleFileDto {
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsEnum(ModuleMediaType)
+  mediaType: ModuleMediaType;
+
+  @IsString()
+  mediaUrl: string;
+}
 
 export class UpdateModuleDto {
   @IsOptional()
@@ -18,11 +31,6 @@ export class UpdateModuleDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  durationMinutes?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
   deadlineDays?: number;
 
   @IsOptional()
@@ -32,4 +40,10 @@ export class UpdateModuleDto {
   @IsOptional()
   @IsString()
   mediaUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdateModuleFileDto)
+  filesToAdd?: UpdateModuleFileDto[];
 }

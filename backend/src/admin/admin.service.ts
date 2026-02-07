@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { OrganizationType, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { ModulesService } from '../modules/modules.service';
@@ -34,7 +34,12 @@ export class AdminService {
   async listOrganizations() {
     const organizations = await this.prisma.organization.findMany({
       include: {
-        purchases: { orderBy: { purchasedAt: 'desc' }, take: 1 }
+        purchases: { orderBy: { purchasedAt: 'desc' }, take: 1 },
+        users: {
+          where: { role: Role.ORG_ADMIN },
+          select: { name: true },
+          take: 1
+        }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -45,9 +50,12 @@ export class AdminService {
           where: { organizationId: organization.id, role: Role.ORG_USER }
         });
 
+        const adminName = organization.users?.[0]?.name || '';
+
         return {
           ...organization,
-          userCount
+          userCount,
+          adminName
         };
       })
     );
@@ -69,18 +77,64 @@ export class AdminService {
     return this.prisma.packagePrice.findMany({ orderBy: { packageType: 'asc' } });
   }
 
-  async updatePricing(params: { packageType: OrganizationType; amount: number; currency?: string }) {
-    return this.prisma.packagePrice.upsert({
+  async updatePricing(params: {
+    packageType: string;
+    amount: number;
+    currency?: string;
+    maxUsers?: number;
+    label?: string;
+    summary?: string;
+    features?: string[];
+    highlight?: boolean;
+  }) {
+    const price = await this.prisma.packagePrice.upsert({
       where: { packageType: params.packageType },
       create: {
         packageType: params.packageType,
         amount: params.amount,
-        currency: params.currency ?? 'INR'
+        currency: params.currency ?? 'INR',
+        maxUsers: params.maxUsers ?? 1,
+        label: params.label ?? '',
+        summary: params.summary ?? '',
+        features: params.features ?? [],
+        highlight: params.highlight ?? false
       },
       update: {
         amount: params.amount,
-        currency: params.currency ?? 'INR'
+        currency: params.currency ?? 'INR',
+        ...(typeof params.maxUsers === 'number' ? { maxUsers: params.maxUsers } : {}),
+        ...(typeof params.label === 'string' ? { label: params.label } : {}),
+        ...(typeof params.summary === 'string' ? { summary: params.summary } : {}),
+        ...(Array.isArray(params.features) ? { features: params.features } : {}),
+        ...(typeof params.highlight === 'boolean' ? { highlight: params.highlight } : {})
       }
+    });
+
+    if (typeof params.maxUsers === 'number') {
+      await this.prisma.organization.updateMany({
+        where: { type: params.packageType },
+        data: { maxUsers: params.maxUsers }
+      });
+    }
+
+    return price;
+  }
+
+  async deletePricing(packageType: string) {
+    const usageCount = await this.prisma.packagePurchase.count({
+      where: { packageType }
+    });
+
+    const orgCount = await this.prisma.organization.count({
+      where: { type: packageType }
+    });
+
+    if (usageCount > 0 || orgCount > 0) {
+      throw new BadRequestException('Package cannot be deleted because it is in use.');
+    }
+
+    return this.prisma.packagePrice.delete({
+      where: { packageType }
     });
   }
 
@@ -97,7 +151,7 @@ export class AdminService {
     const users = await this.prisma.user.findMany({
       where: { organizationId, role: Role.ORG_USER },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, name: true, email: true, role: true, createdAt: true }
+      select: { id: true, name: true, email: true, createdAt: true }
     });
 
     const usersWithProgress = await Promise.all(
@@ -119,6 +173,105 @@ export class AdminService {
     );
 
     return usersWithProgress;
+  }
+
+  async getCertificationStats() {
+    // Get all ORG_USER users with their progress
+    const users = await this.prisma.user.findMany({
+      where: { role: Role.ORG_USER },
+      select: { id: true, name: true }
+    });
+
+    let certifiedCount = 0;
+    for (const user of users) {
+      const summary = await this.progressService.getCompletionSummary(user.id);
+      if (summary.allCompleted) {
+        certifiedCount++;
+      }
+    }
+
+    return {
+      totalLearners: users.length,
+      certifiedCount
+    };
+  }
+
+  async getCertifiedLearners() {
+    const users = await this.prisma.user.findMany({
+      where: { role: Role.ORG_USER },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        organization: { 
+          select: { 
+            id: true, 
+            name: true, 
+            type: true,
+            users: {
+              where: { role: Role.ORG_ADMIN },
+              select: { name: true },
+              take: 1
+            }
+          } 
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const certifiedUsers: Array<{
+      id: string;
+      name: string;
+      email: string;
+      organization: string;
+      certifiedAt: Date;
+      completedModules: number;
+      totalModules: number;
+    }> = [];
+
+    for (const user of users) {
+      const summary = await this.progressService.getCompletionSummary(user.id);
+      if (summary.allCompleted && summary.issuedAt) {
+        // Clean organization name (remove "Group" suffix if present)
+        const orgDisplay = user.organization?.name?.replace(/\s+Group$/i, '').trim() || 'Individual';
+
+        certifiedUsers.push({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          organization: orgDisplay,
+          certifiedAt: summary.issuedAt,
+          completedModules: summary.completedCount,
+          totalModules: summary.totalModules
+        });
+      }
+    }
+
+    // Sort by certification date (most recent first)
+    certifiedUsers.sort((a, b) => new Date(b.certifiedAt).getTime() - new Date(a.certifiedAt).getTime());
+
+    return certifiedUsers;
+  }
+
+  async getOrganizationCertificationStats(organizationId: string) {
+    const users = await this.prisma.user.findMany({
+      where: { organizationId, role: Role.ORG_USER },
+      select: { id: true }
+    });
+
+    let certifiedCount = 0;
+    for (const user of users) {
+      const summary = await this.progressService.getCompletionSummary(user.id);
+      if (summary.allCompleted) {
+        certifiedCount++;
+      }
+    }
+
+    return {
+      totalLearners: users.length,
+      certifiedCount
+    };
   }
 
   async getUserProgressDetails(userId: string) {

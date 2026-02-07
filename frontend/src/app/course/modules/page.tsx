@@ -11,6 +11,7 @@ export default function CourseModulesPage() {
   const router = useRouter();
   const { user, token, logout, ready } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const completedCount = modules.filter((moduleItem) => moduleItem.status === 'COMPLETED').length;
   const totalProgress = modules.length ? Math.round((completedCount / modules.length) * 100) : 0;
 
@@ -38,59 +39,86 @@ export default function CourseModulesPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Image src="/images/logo.svg" alt="AGC logo" width={40} height={40} />
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Image src="/images/logo.svg" alt="AGC logo" width={36} height={36} className="h-8 w-8 sm:h-10 sm:w-10" />
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Academic Guide Course</p>
-              <h1 className="text-lg font-semibold text-slate-900">Learner Portal</h1>
+              <p className="hidden text-xs uppercase tracking-wide text-slate-400 sm:block">Academic Guide Course</p>
+              <h1 className="text-sm font-semibold text-slate-900 sm:text-lg">Learner Portal</h1>
             </div>
           </div>
-          <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
+          <nav className="hidden items-center gap-6 text-sm text-slate-600 lg:flex">
             <Link href="/course#program" className="hover:text-ocean-600">Programme</Link>
             <Link href="/course/modules" className="hover:text-ocean-600">Modules</Link>
             <Link href="/course#how-it-works" className="hover:text-ocean-600">How it works</Link>
             <Link href="/course#certification" className="hover:text-ocean-600">Certification</Link>
             <Link href="/course#contact" className="hover:text-ocean-600">Contact</Link>
           </nav>
-          <div className="relative">
-            <details className="group">
-              <summary className="list-none cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-sm font-semibold text-slate-700">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm">
-                  👤
-                </span>
-              </summary>
-              <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-md">
-                <div className="px-3 py-2 text-sm">
-                  <p className="font-semibold text-slate-800">{user?.name || 'Learner'}</p>
-                  <p className="text-xs text-slate-500">{user?.email || ''}</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 lg:hidden"
+            >
+              {mobileMenuOpen ? (
+                <svg className="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+            <div className="relative">
+              <details className="group">
+                <summary className="list-none cursor-pointer rounded-full border border-slate-200 bg-white p-1.5 text-sm font-semibold text-slate-700 sm:p-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm sm:h-8 sm:w-8">
+                    👤
+                  </span>
+                </summary>
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-md">
+                  <div className="px-3 py-2 text-sm">
+                    <p className="font-semibold text-slate-800">{user?.name || 'Learner'}</p>
+                    <p className="truncate text-xs text-slate-500">{user?.email || ''}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      logout();
+                      router.push('/');
+                    }}
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    logout();
-                    router.push('/');
-                  }}
-                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                >
-                  Logout
-                </button>
-              </div>
-            </details>
+              </details>
+            </div>
           </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="border-t border-slate-100 bg-white px-4 py-3 lg:hidden">
+            <nav className="flex flex-col gap-1">
+              <Link href="/course#program" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Programme</Link>
+              <Link href="/course/modules" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Modules</Link>
+              <Link href="/course#how-it-works" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">How it works</Link>
+              <Link href="/course#certification" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Certification</Link>
+              <Link href="/course#contact" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Contact</Link>
+            </nav>
+          </div>
+        )}
       </header>
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
-        <div className="rounded-2xl bg-white p-6 shadow-sm" id="modules-list">
+      <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6" id="modules-list">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Modules</p>
-              <h2 className="mt-2 text-lg font-semibold text-slate-900">Module list</h2>
-              <p className="mt-1 text-sm text-slate-500">Complete each module to unlock the next.</p>
+              <h2 className="mt-2 text-base font-semibold text-slate-900 sm:text-lg">Module list</h2>
+              <p className="mt-1 text-xs text-slate-500 sm:text-sm">Complete each module to unlock the next.</p>
             </div>
-            <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              <span className="text-lg">📘</span>
-              {modules.length} modules · Complete sequentially.
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600 sm:gap-4 sm:px-4 sm:py-3 sm:text-sm">
+              <span className="text-base sm:text-lg">📘</span>
+              <span className="whitespace-nowrap">{modules.length} modules</span>
             </div>
           </div>
           <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -127,8 +155,11 @@ export default function CourseModulesPage() {
                       <h3 className="text-base font-semibold text-slate-900">{moduleItem.title}</h3>
                       <p className="mt-1 text-sm text-slate-600">{moduleItem.description}</p>
                       <p className="mt-2 text-xs text-slate-500">
-                        {moduleItem.mediaType === 'PRESENTATION' ? 'Presentation' : 'Video'} ·{' '}
-                        {moduleItem.durationMinutes} mins
+                        {moduleItem.files?.length
+                          ? `${moduleItem.files.length} file${moduleItem.files.length === 1 ? '' : 's'}`
+                          : moduleItem.mediaType === 'PDF'
+                            ? 'PDF'
+                            : 'Video'}
                       </p>
                     </div>
                   </div>

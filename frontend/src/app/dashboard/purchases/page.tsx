@@ -7,6 +7,7 @@ import { listAdminPurchases } from '@/lib/api';
 export default function DashboardPurchasesPage() {
   const { user, token } = useAuth();
   const [purchases, setPurchases] = useState<any[]>([]);
+  const cleanGroupSuffix = (value?: string) => (value ? value.replace(/\s+Group$/i, '') : '');
 
   useEffect(() => {
     if (!token || !user) return;
@@ -32,13 +33,18 @@ export default function DashboardPurchasesPage() {
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="grid gap-3">
-          {purchases.map((purchase) => (
-            <div key={purchase.id} className="rounded-xl border border-slate-100 p-4">
-              <p className="font-semibold text-slate-800">{purchase.organization?.name}</p>
-              <p className="text-sm text-slate-500">Package: {purchase.packageType}</p>
-              <p className="text-xs text-slate-400">Purchased by {purchase.purchasedBy?.name}</p>
-            </div>
-          ))}
+          {purchases.map((purchase) => {
+            const displayName = cleanGroupSuffix(purchase.organization?.name) || 'Unknown';
+            
+            return (
+              <div key={purchase.id} className="rounded-xl border border-slate-100 p-4">
+                <p className="font-semibold text-slate-800">{displayName}</p>
+                <p className="text-xs text-slate-400">
+                  {purchase.purchasedAt ? new Date(purchase.purchasedAt).toLocaleDateString() : ''}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

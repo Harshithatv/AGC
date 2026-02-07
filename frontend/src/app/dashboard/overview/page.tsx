@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import {
   getCertificate,
+  getCertificationStats,
   getMyModules,
   getOrganization,
   listAdminOrganizations,
@@ -18,6 +19,7 @@ export default function DashboardOverviewPage() {
   const [adminOrgs, setAdminOrgs] = useState<any[]>([]);
   const [adminPurchases, setAdminPurchases] = useState<any[]>([]);
   const [adminModules, setAdminModules] = useState<any[]>([]);
+  const [certStats, setCertStats] = useState<{ totalLearners: number; certifiedCount: number } | null>(null);
   const [certificate, setCertificate] = useState<any>(null);
 
   const roleLabel = useMemo(() => {
@@ -32,14 +34,16 @@ export default function DashboardOverviewPage() {
 
     const load = async () => {
       if (user.role === 'SYSTEM_ADMIN') {
-        const [orgs, purchases, moduleList] = await Promise.all([
+        const [orgs, purchases, moduleList, certificationStats] = await Promise.all([
           listAdminOrganizations(token),
           listAdminPurchases(token),
-          listAllModules(token)
+          listAllModules(token),
+          getCertificationStats(token)
         ]);
         setAdminOrgs(orgs as any[]);
         setAdminPurchases(purchases as any[]);
         setAdminModules(moduleList as any[]);
+        setCertStats(certificationStats as { totalLearners: number; certifiedCount: number });
       }
 
       if (user.role === 'ORG_ADMIN') {
@@ -68,42 +72,49 @@ export default function DashboardOverviewPage() {
   if (!user) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <p className="text-sm text-slate-500">Dashboard</p>
-        <h2 className="text-2xl font-semibold text-slate-900">{roleLabel}</h2>
-        <p className="mt-2 text-sm text-slate-600">Welcome back, {user.name}.</p>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+        <p className="text-xs text-slate-500 sm:text-sm">Dashboard</p>
+        <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">{roleLabel}</h2>
+        <p className="mt-1 text-xs text-slate-600 sm:mt-2 sm:text-sm">Welcome back, {user.name}.</p>
       </div>
 
       {user.role === 'SYSTEM_ADMIN' ? (
-        <div className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <p className="text-sm text-slate-500">Learners</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-900">
-                {adminOrgs.reduce((total, item) => total + (item.userCount ?? 0), 0)}
+        <div className="space-y-4 sm:space-y-6">
+          <div className="grid gap-3 sm:gap-6 md:grid-cols-4">
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <p className="text-xs text-slate-500 sm:text-sm">Learners</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900 sm:mt-2 sm:text-3xl">
+                {certStats?.totalLearners ?? adminOrgs.reduce((total, item) => total + (item.userCount ?? 0), 0)}
               </p>
-              <p className="mt-2 text-xs text-slate-400">Across all accounts</p>
+              <p className="mt-1 text-xs text-slate-400 sm:mt-2">Across all accounts</p>
             </div>
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <p className="text-sm text-slate-500">Purchases</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-900">{adminPurchases.length}</p>
-              <p className="mt-2 text-xs text-slate-400">New package requests</p>
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <p className="text-xs text-slate-500 sm:text-sm">Certified</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900 sm:mt-2 sm:text-3xl">
+                {certStats?.certifiedCount ?? 0}
+              </p>
+              <p className="mt-1 text-xs text-slate-400 sm:mt-2">Completed all modules</p>
             </div>
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <p className="text-sm text-slate-500">Modules</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-900">{adminModules.length}</p>
-              <p className="mt-2 text-xs text-slate-400">Published content</p>
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <p className="text-xs text-slate-500 sm:text-sm">Purchases</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900 sm:mt-2 sm:text-3xl">{adminPurchases.length}</p>
+              <p className="mt-1 text-xs text-slate-400 sm:mt-2">New package requests</p>
+            </div>
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <p className="text-xs text-slate-500 sm:text-sm">Modules</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900 sm:mt-2 sm:text-3xl">{adminModules.length}</p>
+              <p className="mt-1 text-xs text-slate-400 sm:mt-2">Published content</p>
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-[2fr,1fr]">
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Organization growth</h3>
-                <span className="rounded-full bg-ocean-50 px-3 py-1 text-xs font-semibold text-ocean-600">30 days</span>
+                <h3 className="text-base font-semibold sm:text-lg">Learner activity</h3>
+                <span className="rounded-full bg-ocean-50 px-2 py-0.5 text-xs font-semibold text-ocean-600 sm:px-3 sm:py-1">30 days</span>
               </div>
-              <div className="mt-6 h-48 rounded-2xl bg-gradient-to-br from-ocean-50 to-white p-4">
+              <div className="mt-4 h-36 rounded-2xl bg-gradient-to-br from-ocean-50 to-white p-3 sm:mt-6 sm:h-48 sm:p-4">
                 <svg viewBox="0 0 400 120" className="h-full w-full">
                   <polyline
                     fill="none"
@@ -115,13 +126,15 @@ export default function DashboardOverviewPage() {
                 </svg>
               </div>
             </div>
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-semibold">Latest purchases</h3>
-              <div className="mt-4 space-y-3">
+            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+              <h3 className="text-base font-semibold sm:text-lg">Latest purchases</h3>
+              <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                 {adminPurchases.slice(0, 3).map((purchase) => (
-                  <div key={purchase.id} className="rounded-xl border border-slate-100 p-3 text-sm">
-                    <p className="font-semibold text-slate-800">{purchase.organization?.name}</p>
-                    <p className="text-xs text-slate-500">Package: {purchase.packageType}</p>
+                  <div key={purchase.id} className="rounded-lg border border-slate-100 p-2 text-sm sm:rounded-xl sm:p-3">
+                    <p className="truncate font-semibold text-slate-800">{purchase.organization?.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {purchase.purchasedAt ? new Date(purchase.purchasedAt).toLocaleDateString() : ''}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -139,9 +152,9 @@ export default function DashboardOverviewPage() {
               <p className="mt-2 text-xs text-slate-400">Active learners</p>
             </div>
             <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <p className="text-sm text-slate-500">Package</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-900">{org?.type ?? '-'}</p>
-              <p className="mt-2 text-xs text-slate-400">Current plan</p>
+              <p className="text-sm text-slate-500">Certified</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">{org?.certifiedCount ?? 0}</p>
+              <p className="mt-2 text-xs text-slate-400">Completed all modules</p>
             </div>
             <div className="rounded-2xl bg-white p-6 shadow-sm">
               <p className="text-sm text-slate-500">Modules</p>
