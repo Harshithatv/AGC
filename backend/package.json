@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Academic Guide Course backend",
   "private": true,
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "scripts": {
     "start": "node dist/src/main",
     "start:dev": "nest start --watch",
