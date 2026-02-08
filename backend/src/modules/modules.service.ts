@@ -153,7 +153,10 @@ export class ModulesService {
   }
 
   async getModulesForUser(userId: string, organizationId: string) {
-    const [modules, progress, progressFiles, organization] = await Promise.all([
+    // Check if user has a permanent certificate — if so, only show modules from certification time
+    const certificate = await this.prisma.certificate.findUnique({ where: { userId } });
+
+    const [allModules, progress, progressFiles, organization] = await Promise.all([
       this.prisma.courseModule.findMany({
         orderBy: { order: 'asc' },
         include: { files: { orderBy: { order: 'asc' } } }
@@ -162,6 +165,11 @@ export class ModulesService {
       this.prisma.moduleFileProgress.findMany({ where: { userId } }),
       this.prisma.organization.findUnique({ where: { id: organizationId } })
     ]);
+
+    // For certified users, filter out modules added after their certification
+    const modules = certificate
+      ? allModules.filter((m) => m.createdAt <= certificate.issuedAt)
+      : allModules;
 
     if (!organization) {
       throw new NotFoundException('Organization not found');
@@ -312,8 +320,9 @@ export class ModulesService {
       where: { userId_moduleId: { userId, moduleId } }
     });
 
+    let result;
     if (!existing) {
-      return this.prisma.moduleProgress.create({
+      result = await this.prisma.moduleProgress.create({
         data: {
           userId,
           moduleId,
@@ -322,12 +331,17 @@ export class ModulesService {
           completedAt: new Date()
         }
       });
+    } else {
+      result = await this.prisma.moduleProgress.update({
+        where: { id: existing.id },
+        data: { status: ModuleStatus.COMPLETED, completedAt: new Date() }
+      });
     }
 
-    return this.prisma.moduleProgress.update({
-      where: { id: existing.id },
-      data: { status: ModuleStatus.COMPLETED, completedAt: new Date() }
-    });
+    // Check if ALL modules are now completed → issue permanent certificate
+    await this.issueCertificateIfComplete(userId, modules.length);
+
+    return result;
   }
 
   async startModuleFile(userId: string, moduleId: string, fileId: string) {
@@ -443,8 +457,43 @@ export class ModulesService {
           data: { status: ModuleStatus.COMPLETED, completedAt: new Date() }
         });
       }
+
+      // Check if ALL modules are now completed → issue permanent certificate
+      const totalModules = await this.prisma.courseModule.count();
+      await this.issueCertificateIfComplete(userId, totalModules);
     }
 
     return { success: true };
+  }
+
+  /**
+   * Issues a permanent certificate if the user has completed all current modules.
+   * Once issued, the certificate persists even if new modules are added later.
+   */
+  private async issueCertificateIfComplete(userId: string, totalModules: number) {
+    // Don't issue if no modules exist
+    if (totalModules === 0) return;
+
+    // Check if certificate already exists
+    const existingCert = await this.prisma.certificate.findUnique({
+      where: { userId }
+    });
+    if (existingCert) return;
+
+    // Count how many modules the user has completed
+    const completedModuleCount = await this.prisma.moduleProgress.count({
+      where: { userId, status: ModuleStatus.COMPLETED }
+    });
+
+    // Issue certificate only if ALL modules are completed
+    if (completedModuleCount >= totalModules) {
+      await this.prisma.certificate.create({
+        data: {
+          userId,
+          totalModules,
+          issuedAt: new Date()
+        }
+      });
+    }
   }
 }

@@ -44,6 +44,12 @@ export default function ModuleViewerPage() {
     [modules, moduleId]
   );
 
+  const isCertified = !!certificate?.certificate;
+  const isLastModule = useMemo(() => {
+    if (!modules.length || !moduleItem) return false;
+    const maxOrder = Math.max(...modules.map((m) => m.order ?? 0));
+    return moduleItem.order === maxOrder;
+  }, [modules, moduleItem]);
   const moduleFiles = useMemo(() => moduleItem?.files ?? [], [moduleItem]);
 
   const selectedFile = useMemo(() => {
@@ -110,6 +116,72 @@ export default function ModuleViewerPage() {
       const nextFile = moduleFiles[currentIndex + 1];
       setSelectedFileId(nextFile?.id ?? null);
     }
+  };
+
+  const handleDownloadCertificate = async () => {
+    if (!certificate?.certificate) return;
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    doc.setDrawColor(224, 200, 120);
+    doc.setLineWidth(5);
+    doc.rect(28, 28, pageWidth - 56, pageHeight - 56);
+    doc.setDrawColor(230, 232, 240);
+    doc.setLineWidth(1.5);
+    doc.rect(44, 44, pageWidth - 88, pageHeight - 88);
+
+    doc.setTextColor(176, 132, 40);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(14);
+    doc.text('ACADEMIC GUIDE COURSE', pageWidth / 2, 110, { align: 'center' });
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(36);
+    doc.text('Certificate of Completion', pageWidth / 2, 155, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(14);
+    doc.text('This is to certify that', pageWidth / 2, 200, { align: 'center' });
+
+    doc.setFont('times', 'bold');
+    doc.setFontSize(30);
+    doc.text(certificate.certificate.issuedTo, pageWidth / 2, 245, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(14);
+    doc.text('has successfully completed the programme', pageWidth / 2, 285, { align: 'center' });
+
+    doc.setFont('times', 'bold');
+    doc.setFontSize(20);
+    doc.text(certificate.certificate.program, pageWidth / 2, 320, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    const issuedDate = new Date(certificate.certificate.issuedAt).toLocaleDateString();
+    doc.text(`Issued to: ${certificate.certificate.issuedEmail}`, pageWidth / 2, 360, { align: 'center' });
+    doc.text(`Issued on: ${issuedDate}`, pageWidth / 2, 382, { align: 'center' });
+
+    doc.setDrawColor(176, 132, 40);
+    doc.setLineWidth(1);
+    doc.circle(pageWidth / 2, pageHeight - 130, 36, 'S');
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
+    doc.text('AGC', pageWidth / 2, pageHeight - 126, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Certified', pageWidth / 2, pageHeight - 112, { align: 'center' });
+
+    doc.setFontSize(11);
+    doc.setTextColor(51, 65, 85);
+    doc.text('Academic Guide Course & Certification', pageWidth / 2, pageHeight - 70, { align: 'center' });
+    doc.text('AGC Learning Portal', pageWidth / 2, pageHeight - 52, { align: 'center' });
+
+    doc.save(`AGC-Certificate-${certificate.certificate.issuedTo.replace(/\s+/g, '-')}.pdf`);
   };
 
   return (
@@ -268,38 +340,108 @@ export default function ModuleViewerPage() {
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Module files</p>
                   <div className="mt-3 space-y-2">
-                    {moduleFiles.map((file: any) => (
-                      <button
-                        key={file.id}
-                        onClick={() => file.isActive && setSelectedFileId(file.id)}
-                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm ${
-                          file.isActive
-                            ? 'border-slate-200 bg-white hover:border-ocean-300'
-                            : 'border-slate-100 bg-slate-50 text-slate-400'
-                        } ${selectedFile?.id === file.id ? 'border-ocean-400 bg-ocean-50' : ''}`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-slate-500">#{file.order}</span>
-                          <span className="font-medium text-slate-900">
-                            {file.title || `${file.mediaType || 'File'}`}
+                    {moduleFiles.map((file: any) => {
+                      const isSelected = selectedFile?.id === file.id;
+                      const isInProgress = file.status === 'IN_PROGRESS';
+                      const isCompleted = file.status === 'COMPLETED';
+                      return (
+                        <button
+                          key={file.id}
+                          onClick={() => (isCertified || file.isActive) && setSelectedFileId(file.id)}
+                          disabled={!isCertified && !file.isActive}
+                          className={`relative flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm transition-all ${
+                            isCertified
+                              ? 'border-emerald-100 bg-emerald-50/50'
+                              : isInProgress && isSelected
+                                ? 'border-ocean-500 bg-ocean-50 ring-2 ring-ocean-200'
+                                : isInProgress
+                                  ? 'border-ocean-300 bg-ocean-50/60 hover:border-ocean-400'
+                                  : isCompleted
+                                    ? 'border-emerald-200 bg-emerald-50/40'
+                                    : file.isActive
+                                      ? 'border-slate-200 bg-white hover:border-ocean-300'
+                                      : 'border-slate-100 bg-slate-50 text-slate-400'
+                          } ${!isCertified && isSelected && !isInProgress ? 'border-ocean-400 bg-ocean-50' : ''}`}
+                        >
+                          <span className="flex items-center gap-2">
+                            {isCertified ? (
+                              <svg className="h-4 w-4 flex-shrink-0 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : isCompleted ? (
+                              <svg className="h-4 w-4 flex-shrink-0 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : isInProgress ? (
+                              <span className="relative flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                                <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-ocean-400 opacity-50" />
+                                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-ocean-500" />
+                              </span>
+                            ) : (
+                              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 border-slate-300 text-[9px] font-bold text-slate-400">
+                                {file.order}
+                              </span>
+                            )}
+                            <span className={`font-medium ${
+                              isCertified ? 'text-slate-600'
+                                : isInProgress ? 'text-ocean-800'
+                                : isCompleted ? 'text-slate-700'
+                                : 'text-slate-900'
+                            }`}>
+                              {file.title || `${file.mediaType || 'File'}`}
+                            </span>
                           </span>
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {file.status?.replace('_', ' ') || 'Not started'}
-                        </span>
-                      </button>
-                    ))}
+                          <span className="flex items-center gap-1.5">
+                            {!isCertified && isInProgress ? (
+                              <span className="rounded-full bg-ocean-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ocean-700">
+                                In progress
+                              </span>
+                            ) : (
+                              <span className={`text-xs ${
+                                isCertified ? 'font-semibold text-emerald-600'
+                                  : isCompleted ? 'font-semibold text-emerald-600'
+                                  : 'text-slate-500'
+                              }`}>
+                                {isCertified ? 'Completed' : isCompleted ? 'Completed' : (file.status?.replace('_', ' ') || 'Not started')}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
             </div>
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Module status</p>
-              <p className="mt-2 text-sm text-slate-600 whitespace-nowrap">
-                {moduleItem?.status?.replace('_', ' ') || 'Not started'}
+              <p className={`mt-2 text-sm whitespace-nowrap ${isCertified ? 'font-semibold text-emerald-600' : 'text-slate-600'}`}>
+                {isCertified ? 'Completed' : (moduleItem?.status?.replace('_', ' ') || 'Not started')}
               </p>
               <div className="mt-5 flex flex-col gap-3">
-                {moduleItem?.isActive ? (
+                {isCertified ? (
+                  moduleFiles.length ? (
+                    <button
+                      disabled
+                      className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-600 opacity-70"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      File completed
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-600 opacity-70"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Module completed
+                    </button>
+                  )
+                ) : moduleItem?.isActive ? (
                   moduleFiles.length ? (
                     selectedFile?.status === 'NOT_STARTED' ? (
                       <button
@@ -346,6 +488,47 @@ export default function ModuleViewerPage() {
               <div className="mt-5 text-xs text-slate-500">
                 Completed {certificate?.completedCount ?? 0} of {certificate?.totalModules ?? 0} modules.
               </div>
+              {isCertified ? (
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700">
+                      <span>🏅</span> Certificate issued
+                    </p>
+                    <p className="mt-1 text-[11px] text-emerald-600">
+                      All modules completed. Your certificate has been issued.
+                    </p>
+                  </div>
+                  {isLastModule ? (
+                    <div className="rounded-xl border border-ocean-200 bg-gradient-to-br from-ocean-50 to-blue-50 p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">🎓</span>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Certification Achieved!</p>
+                          <p className="text-[11px] text-slate-600">Download your certificate below</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleDownloadCertificate}
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-ocean-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-ocean-700 transition-colors"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Download Certificate
+                      </button>
+                      <Link
+                        href="/course#certification"
+                        className="mt-2 flex w-full items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        View certificate page
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

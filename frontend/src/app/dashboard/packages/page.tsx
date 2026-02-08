@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { deletePricing, listAdminPricing, updatePricing, getOrganization, getPricing } from '@/lib/api';
+import { showToast } from '@/components/Toast';
+import ConfirmDialog from '@/components/ConfirmDialog';
+
+type FieldErrors = Record<string, string>;
 
 export default function DashboardPackagesPage() {
   const { user, token } = useAuth();
@@ -11,6 +15,11 @@ export default function DashboardPackagesPage() {
   const [publicPricing, setPublicPricing] = useState<any[]>([]);
   const [editingPackage, setEditingPackage] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState('');
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; packageType: string; isNew?: boolean }>({ open: false, packageType: '', isNew: false });
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const defaultMeta: Record<string, { label: string; summary: string; features: string[]; highlight?: boolean }> = {
     SINGLE: {
       label: 'Single User',
@@ -65,7 +74,7 @@ export default function DashboardPackagesPage() {
     const { packageTypeOverride, ...rest } = updates;
     setAdminPricing((prev) =>
       prev.map((item) =>
-        item.packageType === packageType
+        (item.id || item.packageType) === editingPackage
           ? {
               ...item,
               ...rest,
@@ -80,6 +89,17 @@ export default function DashboardPackagesPage() {
 
   const editingItem = adminPricing.find((item) => (item.id || item.packageType) === editingPackage) || null;
 
+  const validatePackageForm = (): boolean => {
+    if (!editingItem) return false;
+    const errors: FieldErrors = {};
+    if (!editingItem.packageType?.trim()) errors.packageType = 'Package code is required';
+    if (!editingItem.label?.trim()) errors.label = 'Label is required';
+    if (typeof editingItem.amount !== 'number' || editingItem.amount < 0) errors.amount = 'Amount is required and must be 0 or greater';
+    if (!editingItem.maxUsers || editingItem.maxUsers < 1) errors.maxUsers = 'Max users is required and must be at least 1';
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSavePricing = async (
     packageType: string,
     payload: {
@@ -93,11 +113,22 @@ export default function DashboardPackagesPage() {
     }
   ) => {
     if (!token) return;
+    // Validate first, before checking packageType — so errors show even for new packages
+    if (!validatePackageForm()) return;
     if (!packageType) return;
-    await updatePricing(token, { packageType, ...payload });
-    const pricing = await listAdminPricing(token);
-    setAdminPricing(pricing as any[]);
-    setEditingPackage(null);
+    try {
+      setSaveLoading(true);
+      await updatePricing(token, { packageType, ...payload });
+      const pricing = await listAdminPricing(token);
+      setAdminPricing(pricing as any[]);
+      setEditingPackage(null);
+      setFieldErrors({});
+      showToast('Package saved successfully', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to save package', 'error');
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
   const handleDeletePackage = async (packageType: string, isNew?: boolean) => {
@@ -106,15 +137,24 @@ export default function DashboardPackagesPage() {
     if (!packageType && isNew) {
       setAdminPricing((prev) => prev.filter((item) => !item.isNew));
       setEditingPackage(null);
+      setDeleteConfirm({ open: false, packageType: '', isNew: false });
       return;
     }
     try {
+      setDeleteLoading(true);
       await deletePricing(token, packageType);
       const pricing = await listAdminPricing(token);
       setAdminPricing(pricing as any[]);
       setEditingPackage(null);
+      setDeleteConfirm({ open: false, packageType: '', isNew: false });
+      showToast('Package deleted successfully', 'success');
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Unable to delete package.');
+      const msg = err instanceof Error ? err.message : 'Unable to delete package.';
+      setDeleteError(msg);
+      showToast(msg, 'error');
+      setDeleteConfirm({ open: false, packageType: '', isNew: false });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -136,6 +176,14 @@ export default function DashboardPackagesPage() {
       }
     ]);
     setEditingPackage(draftId);
+    setFieldErrors({});
+  };
+
+  const handleCancelEdit = () => {
+    // Remove any draft (isNew) items from the list when cancelling
+    setAdminPricing((prev) => prev.filter((item) => !item.isNew));
+    setEditingPackage(null);
+    setFieldErrors({});
   };
 
   const applyDefaults = (packageType: string) => {
@@ -184,6 +232,9 @@ export default function DashboardPackagesPage() {
     return publicPricing.find((item) => item.packageType === org.type) || null;
   }, [org, publicPricing]);
 
+  const errBorder = (field: string) =>
+    fieldErrors[field] ? 'border-red-400' : 'border-slate-200';
+
   if (!user) return null;
 
   return (
@@ -206,86 +257,59 @@ export default function DashboardPackagesPage() {
           </div>
           {deleteError ? <p className="text-sm text-red-600">{deleteError}</p> : null}
           <div className="space-y-4">
-            {adminPricing.map((item) => {
+            {adminPricing.filter((item) => !item.isNew).map((item) => {
               const itemKey = item.id || item.packageType;
               const meta = defaultMeta[item.packageType];
-              const features = Array.isArray(item.features) ? item.features.filter(Boolean) : [];
               const displayLabel = item.label || meta?.label || item.packageType || 'New package';
-              const displaySummary = item.summary || meta?.summary || 'Add a short description for this package.';
-              const displayFeatures = features.length > 0 ? features : meta?.features || [];
               return (
                 <div key={itemKey} className="rounded-2xl border border-slate-200 bg-white p-6">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Package</p>
                       <p className="mt-2 text-xl font-semibold text-slate-900">{displayLabel}</p>
-                      {/* <p className="mt-1 text-xs text-slate-500">{item.packageType || 'Package code pending'}</p> */}
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Price</p>
                       <p className="mt-2 text-lg font-semibold text-slate-900">
                         {formatCurrency(item.amount, item.currency || 'USD')}
                       </p>
-                      {/* <p className="text-xs text-slate-500">Max users: {item.maxUsers ?? 'N/A'}</p> */}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
                           applyDefaults(item.packageType);
                           setEditingPackage(itemKey);
+                          setFieldErrors({});
                         }}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-ocean-300"
                       >
                         ✎ Edit
                       </button>
-                    <button
-  onClick={() => handleDeletePackage(item.packageType, item.isNew)}
-  className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 hover:border-rose-300 hover:bg-rose-50"
-  aria-label="Delete package"
-  title="Delete package"
->
-  <svg
-    className="h-4 w-4"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.6"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 6h18" />
-    <path d="M8 6V4h8v2" />
-    <path d="M19 6l-1 14H6L5 6" />
-    <path d="M10 11v6" />
-    <path d="M14 11v6" />
-  </svg>
-  Delete
-</button>
+                      <button
+                        onClick={() => setDeleteConfirm({ open: true, packageType: item.packageType, isNew: item.isNew })}
+                        className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 hover:border-rose-300 hover:bg-rose-50"
+                        aria-label="Delete package"
+                        title="Delete package"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4h8v2" />
+                          <path d="M19 6l-1 14H6L5 6" />
+                          <path d="M10 11v6" />
+                          <path d="M14 11v6" />
+                        </svg>
+                        Delete
+                      </button>
                     </div>
                   </div>
-
-                  {/* <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Description</p>
-                      <p className="mt-2">{displaySummary}</p>
-                    </div>
-                    <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Features</p>
-                      {displayFeatures.length > 0 ? (
-                        <ul className="mt-2 space-y-2">
-                          {displayFeatures.map((feature: string, index: number) => (
-                            <li key={`${itemKey}-feature-${index}`} className="flex items-start gap-2">
-                              <span className="mt-2 h-2 w-2 rounded-full bg-ocean-500" />
-                              <span>{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-2 text-xs text-slate-500">Add feature highlights for this package.</p>
-                      )}
-                    </div>
-                  </div> */}
-
                 </div>
               );
             })}
@@ -294,7 +318,7 @@ export default function DashboardPackagesPage() {
       ) : null}
       {user.role === 'SYSTEM_ADMIN' && editingItem ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-8">
-          <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Edit package</p>
@@ -303,7 +327,7 @@ export default function DashboardPackagesPage() {
                 </p>
               </div>
               <button
-                onClick={() => setEditingPackage(null)}
+                onClick={handleCancelEdit}
                 className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:border-ocean-300"
               >
                 Close
@@ -312,33 +336,45 @@ export default function DashboardPackagesPage() {
 
             <div className="mt-6 grid gap-4">
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Package code
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Package code <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={editingItem.packageType ?? ''}
-                    onChange={(event) =>
-                      handlePricingChange(editingItem.packageType, { packageTypeOverride: event.target.value })
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700"
+                    onChange={(event) => {
+                      handlePricingChange(editingItem.packageType, { packageTypeOverride: event.target.value });
+                      setFieldErrors((e) => ({ ...e, packageType: '' }));
+                    }}
+                    className={`w-full rounded-xl border px-3 py-2 text-sm font-normal text-slate-700 ${errBorder('packageType')}`}
                     placeholder="e.g., SINGLE"
                     disabled={!editingItem.isNew}
                   />
-                </label>
-                <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Label
+                  {fieldErrors.packageType ? <p className="text-xs text-red-500">{fieldErrors.packageType}</p> : null}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Label <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={editingItem.label ?? ''}
-                    onChange={(event) => handlePricingChange(editingItem.packageType, { label: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700"
+                    onChange={(event) => {
+                      handlePricingChange(editingItem.packageType, { label: event.target.value });
+                      setFieldErrors((e) => ({ ...e, label: '' }));
+                    }}
+                    className={`w-full rounded-xl border px-3 py-2 text-sm font-normal text-slate-700 ${errBorder('label')}`}
                     placeholder="Package label"
                   />
-                </label>
+                  {fieldErrors.label ? <p className="text-xs text-red-500">{fieldErrors.label}</p> : null}
+                </div>
               </div>
 
-              <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Description
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Description
+                </label>
                 <textarea
                   value={editingItem.summary ?? ''}
                   onChange={(event) => handlePricingChange(editingItem.packageType, { summary: event.target.value })}
@@ -346,7 +382,7 @@ export default function DashboardPackagesPage() {
                   rows={3}
                   placeholder="Short description"
                 />
-              </label>
+              </div>
 
               <div className="rounded-2xl border border-slate-200 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Features</p>
@@ -381,27 +417,39 @@ export default function DashboardPackagesPage() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Amount
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Amount <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="number"
                     value={editingItem.amount}
-                    onChange={(event) => handlePricingChange(editingItem.packageType, { amount: Number(event.target.value) })}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700"
+                    onChange={(event) => {
+                      handlePricingChange(editingItem.packageType, { amount: Number(event.target.value) });
+                      setFieldErrors((e) => ({ ...e, amount: '' }));
+                    }}
+                    className={`w-full rounded-xl border px-3 py-2 text-sm font-normal text-slate-700 ${errBorder('amount')}`}
                     placeholder="Amount"
                   />
-                </label>
-                <label className="space-y-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Max users
+                  {fieldErrors.amount ? <p className="text-xs text-red-500">{fieldErrors.amount}</p> : null}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Max users <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="number"
                     value={editingItem.maxUsers ?? ''}
-                    onChange={(event) => handlePricingChange(editingItem.packageType, { maxUsers: Number(event.target.value) })}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700"
+                    onChange={(event) => {
+                      handlePricingChange(editingItem.packageType, { maxUsers: Number(event.target.value) });
+                      setFieldErrors((e) => ({ ...e, maxUsers: '' }));
+                    }}
+                    className={`w-full rounded-xl border px-3 py-2 text-sm font-normal text-slate-700 ${errBorder('maxUsers')}`}
                     placeholder="Max users"
                     min={1}
                   />
-                </label>
+                  {fieldErrors.maxUsers ? <p className="text-xs text-red-500">{fieldErrors.maxUsers}</p> : null}
+                </div>
               </div>
 
               <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -426,13 +474,14 @@ export default function DashboardPackagesPage() {
                       highlight: typeof editingItem.highlight === 'boolean' ? editingItem.highlight : undefined
                     })
                   }
-                  className="rounded-xl bg-ocean-600 px-4 py-2 text-xs font-semibold text-white"
+                  disabled={saveLoading}
+                  className="rounded-xl bg-ocean-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
                 >
-                  Save changes
+                  {saveLoading ? 'Saving...' : 'Save changes'}
                 </button>
              
                 <button
-                  onClick={() => setEditingPackage(null)}
+                  onClick={handleCancelEdit}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:border-ocean-300"
                 >
                   Cancel
@@ -442,6 +491,19 @@ export default function DashboardPackagesPage() {
           </div>
         </div>
       ) : null}
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        title="Delete package"
+        message="Are you sure you want to delete this package? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleteLoading}
+        onConfirm={() => handleDeletePackage(deleteConfirm.packageType, deleteConfirm.isNew)}
+        onCancel={() => setDeleteConfirm({ open: false, packageType: '', isNew: false })}
+      />
 
       {user.role === 'ORG_ADMIN' ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6">

@@ -50,6 +50,7 @@ model User {
   fileProgress ModuleFileProgress[]
   createdModules CourseModule[] @relation("CreatedModules")
   purchases    PackagePurchase[]
+  certificate  Certificate?
 }
 
 model PackagePurchase {
@@ -128,6 +129,15 @@ model ModuleProgress {
   completedAt DateTime?
 
   @@unique([userId, moduleId])
+}
+
+model Certificate {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  issuedAt     DateTime @default(now())
+  totalModules Int
+  program      String   @default("Academic Guide Course & Certification")
 }
 
 model PasswordResetToken {

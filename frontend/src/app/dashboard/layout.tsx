@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { ToastContainer } from "@/components/Toast";
 
 const navByRole: Record<string, Array<{ label: string; href: string; icon: string }>> = {
   SYSTEM_ADMIN: [
@@ -180,6 +181,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </aside>
         <div className="w-full overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8">{children}</div>
       </div>
+      <ToastContainer />
     </div>
   );
 }

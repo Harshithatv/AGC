@@ -18,6 +18,7 @@ export default function CertifiedLearnersPage() {
   const { user, token } = useAuth();
   const [learners, setLearners] = useState<CertifiedLearner[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!token || !user) return;
@@ -70,6 +71,21 @@ export default function CertifiedLearnersPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
+        {!loading && learners.length > 0 ? (
+          <div className="mb-4">
+            <div className="relative sm:max-w-xs">
+              <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, email, or organization..."
+                className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
+              />
+            </div>
+          </div>
+        ) : null}
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-ocean-200 border-t-ocean-600" />
@@ -90,11 +106,14 @@ export default function CertifiedLearnersPage() {
           <div className="space-y-3">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-slate-500">
-                {learners.length} {learners.length === 1 ? 'learner' : 'learners'} certified
+                {(() => {
+                  const filtered = learners.filter((l) => !search || l.name.toLowerCase().includes(search.toLowerCase()) || l.email.toLowerCase().includes(search.toLowerCase()) || (l.organization || '').toLowerCase().includes(search.toLowerCase()));
+                  return `${filtered.length} of ${learners.length} ${learners.length === 1 ? 'learner' : 'learners'} certified`;
+                })()}
               </p>
             </div>
             
-            {learners.map((learner) => (
+            {learners.filter((l) => !search || l.name.toLowerCase().includes(search.toLowerCase()) || l.email.toLowerCase().includes(search.toLowerCase()) || (l.organization || '').toLowerCase().includes(search.toLowerCase())).map((learner) => (
               <div
                 key={learner.id}
                 className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-4"

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { createModule, deleteModule, deleteModuleFile, listAllModules, updateModule, getMyModules, uploadModuleFile } from '@/lib/api';
+import { showToast } from '@/components/Toast';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 type MediaType = 'VIDEO' | 'PDF';
 
@@ -41,9 +43,12 @@ const emptyForm: ModuleForm = {
   ]
 };
 
+type FieldErrors = Record<string, string>;
+
 export default function DashboardModulesPage() {
   const { user, token } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
+  const [moduleSearch, setModuleSearch] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newModule, setNewModule] = useState<ModuleForm>(emptyForm);
   const [addError, setAddError] = useState('');
@@ -83,6 +88,15 @@ export default function DashboardModulesPage() {
     url: '',
     type: 'VIDEO'
   });
+
+  // Field-level validation errors
+  const [addFieldErrors, setAddFieldErrors] = useState<FieldErrors>({});
+  const [editFieldErrors, setEditFieldErrors] = useState<FieldErrors>({});
+  const [editSaveLoading, setEditSaveLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [fileDeleteConfirm, setFileDeleteConfirm] = useState<{ open: boolean; moduleId: string; fileId: string }>({ open: false, moduleId: '', fileId: '' });
+
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const resolveMediaUrl = (url: string) => (url.startsWith('http') ? url : `${apiBaseUrl}${url}`);
   const getPdfViewerUrl = (url: string) => `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
@@ -103,6 +117,28 @@ export default function DashboardModulesPage() {
     fileIndex = 0
   ) => {
     if (!file || !token) return;
+
+    // Validate file type against selected media type
+    const selectedType = target === 'edit' ? editFileDraft.mediaType : newModule.files[fileIndex]?.mediaType;
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+    const fileMime = file.type.toLowerCase();
+
+    if (selectedType === 'VIDEO') {
+      const isVideo = fileMime.startsWith('video/') || ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(fileExt);
+      if (!isVideo) {
+        showToast('Please upload a video file when "Video" is selected', 'error');
+        return;
+      }
+    }
+
+    if (selectedType === 'PDF') {
+      const isPdf = fileMime === 'application/pdf' || fileExt === 'pdf';
+      if (!isPdf) {
+        showToast('Please upload a PDF file when "PDF" is selected', 'error');
+        return;
+      }
+    }
+
     const result = await uploadModuleFile(
       token,
       file,
@@ -120,6 +156,7 @@ export default function DashboardModulesPage() {
         files[fileIndex] = { ...files[fileIndex], mediaData: result.url };
         return { ...prev, files };
       });
+      setAddFieldErrors((e) => ({ ...e, files: '' }));
     } else {
       setEditFileDraft((prev) => ({ ...prev, mediaData: result.url }));
     }
@@ -181,29 +218,58 @@ export default function DashboardModulesPage() {
 
   const handleDeleteExistingFile = async (moduleId: string, fileId: string) => {
     if (!token) return;
-    await deleteModuleFile(token, moduleId, fileId);
-    const moduleList = (await listAllModules(token)) as any[];
-    setModules(moduleList);
-    const updated = moduleList.find((item: any) => item.id === moduleId);
-    if (updated) {
-      setEditForm((prev) => ({
-        ...prev,
-        files: Array.isArray(updated.files)
-          ? updated.files.map((file: any) => ({
-              id: file.id,
-              title: file.title || '',
-              mediaType: file.mediaType || 'VIDEO',
-              mediaData: file.mediaUrl || '',
-              order: file.order
-            }))
-          : []
-      }));
+    try {
+      await deleteModuleFile(token, moduleId, fileId);
+      const moduleList = (await listAllModules(token)) as any[];
+      setModules(moduleList);
+      const updated = moduleList.find((item: any) => item.id === moduleId);
+      if (updated) {
+        setEditForm((prev) => ({
+          ...prev,
+          files: Array.isArray(updated.files)
+            ? updated.files.map((file: any) => ({
+                id: file.id,
+                title: file.title || '',
+                mediaType: file.mediaType || 'VIDEO',
+                mediaData: file.mediaUrl || '',
+                order: file.order
+              }))
+            : []
+        }));
+      }
+      showToast('File deleted successfully', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete file', 'error');
     }
+  };
+
+  const validateAddForm = (): boolean => {
+    const errors: FieldErrors = {};
+    if (!newModule.title.trim()) errors.title = 'Module title is required';
+    if (!newModule.description.trim()) errors.description = 'Description is required';
+    if (!Number.isInteger(Number(newModule.order)) || Number(newModule.order) < 1) errors.order = 'Order must be a whole number greater than 0';
+    if (!Number.isInteger(Number(newModule.deadlineDays)) || Number(newModule.deadlineDays) < 1) errors.deadlineDays = 'Deadline must be a whole number greater than 0';
+    const hasFile = newModule.files.some((f) => f.mediaData.trim());
+    if (!hasFile) errors.files = 'Please upload at least one file';
+    setAddFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateEditForm = (): boolean => {
+    const errors: FieldErrors = {};
+    if (!editForm.title.trim()) errors.title = 'Module title is required';
+    if (!editForm.description.trim()) errors.description = 'Description is required';
+    if (!Number.isInteger(Number(editForm.order)) || Number(editForm.order) < 1) errors.order = 'Order must be a whole number greater than 0';
+    if (!Number.isInteger(Number(editForm.deadlineDays)) || Number(editForm.deadlineDays) < 1) errors.deadlineDays = 'Deadline must be a whole number greater than 0';
+    setEditFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleAddModule = async () => {
     if (!token) return;
     setAddError('');
+    if (!validateAddForm()) return;
+
     const files = newModule.files
       .map((file) => ({
         order: Number(file.order),
@@ -222,27 +288,7 @@ export default function DashboardModulesPage() {
       mediaUrl: primaryFile?.mediaUrl || newModule.mediaData.trim(),
       files
     };
-    console.log('Add module payload', payload);
-    if (!payload.title || !payload.description) {
-      setAddError('Title and description are required.');
-      return;
-    }
-    if (!Number.isInteger(payload.order) || payload.order < 1) {
-      setAddError('Order must be a whole number greater than 0.');
-      return;
-    }
-    if (!Number.isInteger(payload.deadlineDays) || payload.deadlineDays < 1) {
-      setAddError('Deadline must be a whole number greater than 0.');
-      return;
-    }
-    if (!['VIDEO', 'PDF'].includes(payload.mediaType)) {
-      setAddError('Please select a valid content type.');
-      return;
-    }
-    if (!payload.mediaUrl) {
-      setAddError('Please upload at least one file before saving the module.');
-      return;
-    }
+
     try {
       setAddLoading(true);
       await createModule(token, payload);
@@ -250,8 +296,12 @@ export default function DashboardModulesPage() {
       setModules(moduleList);
       setNewModule(emptyForm);
       setShowAddForm(false);
+      setAddFieldErrors({});
+      showToast('Module created successfully', 'success');
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : 'Unable to add module');
+      const msg = err instanceof Error ? err.message : 'Unable to add module';
+      setAddError(msg);
+      showToast(msg, 'error');
     } finally {
       setAddLoading(false);
     }
@@ -259,13 +309,24 @@ export default function DashboardModulesPage() {
 
   const handleDeleteModule = async (id: string) => {
     if (!token) return;
-    await deleteModule(token, id);
-    const moduleList = (await listAllModules(token)) as any[];
-    setModules(moduleList);
+    try {
+      setDeleteLoading(true);
+      await deleteModule(token, id);
+      const moduleList = (await listAllModules(token)) as any[];
+      setModules(moduleList);
+      setDeleteConfirm({ open: false, id: '' });
+      showToast('Module deleted successfully', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete module', 'error');
+      setDeleteConfirm({ open: false, id: '' });
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const handleEdit = (moduleItem: any) => {
     setEditingId(moduleItem.id);
+    setEditFieldErrors({});
     setEditForm({
       title: moduleItem.title,
       description: moduleItem.description,
@@ -294,26 +355,39 @@ export default function DashboardModulesPage() {
 
   const handleSaveEdit = async (id: string) => {
     if (!token) return;
-    await updateModule(token, id, {
-      title: editForm.title,
-      description: editForm.description,
-      order: editForm.order,
-      deadlineDays: editForm.deadlineDays,
-      mediaType: editForm.mediaType,
-      mediaUrl: editForm.mediaData,
-      filesToAdd: editPendingFiles
-        .map((file) => ({
-          title: file.title.trim(),
-          mediaType: file.mediaType,
-          mediaUrl: file.mediaData.trim()
-        }))
-        .filter((file) => file.mediaUrl)
-    });
-    const moduleList = (await listAllModules(token)) as any[];
-    setModules(moduleList);
-    setEditingId(null);
-    setEditPendingFiles([]);
+    if (!validateEditForm()) return;
+    try {
+      setEditSaveLoading(true);
+      await updateModule(token, id, {
+        title: editForm.title,
+        description: editForm.description,
+        order: editForm.order,
+        deadlineDays: editForm.deadlineDays,
+        mediaType: editForm.mediaType,
+        mediaUrl: editForm.mediaData,
+        filesToAdd: editPendingFiles
+          .map((file) => ({
+            title: file.title.trim(),
+            mediaType: file.mediaType,
+            mediaUrl: file.mediaData.trim()
+          }))
+          .filter((file) => file.mediaUrl)
+      });
+      const moduleList = (await listAllModules(token)) as any[];
+      setModules(moduleList);
+      setEditingId(null);
+      setEditPendingFiles([]);
+      setEditFieldErrors({});
+      showToast('Module updated successfully', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update module', 'error');
+    } finally {
+      setEditSaveLoading(false);
+    }
   };
+
+  const errBorder = (field: string, errors: FieldErrors) =>
+    errors[field] ? 'border-red-400' : 'border-slate-200';
 
   if (!user) return null;
 
@@ -329,7 +403,7 @@ export default function DashboardModulesPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Modules</h3>
             <button
-              onClick={() => setShowAddForm(true)}
+              onClick={() => { setShowAddForm(true); setAddFieldErrors({}); setAddError(''); }}
               className="rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white"
             >
               Add new module
@@ -340,7 +414,7 @@ export default function DashboardModulesPage() {
 
       {showAddForm ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-8">
-          <div className="w-full max-w-4xl rounded-3xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Add module</p>
@@ -351,6 +425,7 @@ export default function DashboardModulesPage() {
                   setShowAddForm(false);
                   setNewModule(emptyForm);
                   setAddError('');
+                  setAddFieldErrors({});
                 }}
                 className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600"
               >
@@ -358,43 +433,60 @@ export default function DashboardModulesPage() {
               </button>
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase text-slate-400">Module title</label>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-slate-400">
+                  Module title <span className="text-red-500">*</span>
+                </label>
                 <input
                   value={newModule.title}
-                  onChange={(event) => setNewModule({ ...newModule, title: event.target.value })}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                  onChange={(event) => { setNewModule({ ...newModule, title: event.target.value }); setAddFieldErrors((e) => ({ ...e, title: '' })); }}
+                  className={`w-full rounded-xl border px-4 py-2 ${errBorder('title', addFieldErrors)}`}
+                  placeholder="Enter module title"
                 />
+                {addFieldErrors.title ? <p className="text-xs text-red-500">{addFieldErrors.title}</p> : null}
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase text-slate-400">Order</label>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-slate-400">
+                  Order <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="number"
                   value={newModule.order}
-                  onChange={(event) => setNewModule({ ...newModule, order: Number(event.target.value) })}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                  onChange={(event) => { setNewModule({ ...newModule, order: Number(event.target.value) }); setAddFieldErrors((e) => ({ ...e, order: '' })); }}
+                  className={`w-full rounded-xl border px-4 py-2 ${errBorder('order', addFieldErrors)}`}
                 />
+                {addFieldErrors.order ? <p className="text-xs text-red-500">{addFieldErrors.order}</p> : null}
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase text-slate-400">Deadline days</label>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-slate-400">
+                  Deadline days <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="number"
                   value={newModule.deadlineDays}
-                  onChange={(event) => setNewModule({ ...newModule, deadlineDays: Number(event.target.value) })}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                  onChange={(event) => { setNewModule({ ...newModule, deadlineDays: Number(event.target.value) }); setAddFieldErrors((e) => ({ ...e, deadlineDays: '' })); }}
+                  className={`w-full rounded-xl border px-4 py-2 ${errBorder('deadlineDays', addFieldErrors)}`}
                 />
+                {addFieldErrors.deadlineDays ? <p className="text-xs text-red-500">{addFieldErrors.deadlineDays}</p> : null}
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-xs font-semibold uppercase text-slate-400">Module description</label>
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-semibold uppercase text-slate-400">
+                  Module description <span className="text-red-500">*</span>
+                </label>
                 <textarea
                   value={newModule.description}
-                  onChange={(event) => setNewModule({ ...newModule, description: event.target.value })}
+                  onChange={(event) => { setNewModule({ ...newModule, description: event.target.value }); setAddFieldErrors((e) => ({ ...e, description: '' })); }}
                   rows={3}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                  className={`w-full rounded-xl border px-4 py-3 ${errBorder('description', addFieldErrors)}`}
+                  placeholder="Enter module description"
                 />
+                {addFieldErrors.description ? <p className="text-xs text-red-500">{addFieldErrors.description}</p> : null}
               </div>
               <div className="md:col-span-2 space-y-3">
-                <label className="text-xs font-semibold uppercase text-slate-400">Module files</label>
+                <label className="text-xs font-semibold uppercase text-slate-400">
+                  Module files <span className="text-red-500">*</span>
+                </label>
+                {addFieldErrors.files ? <p className="text-xs text-red-500">{addFieldErrors.files}</p> : null}
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                   {newModule.files.map((file, index) => (
                     <div key={`new-file-${index}`} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
@@ -419,6 +511,7 @@ export default function DashboardModulesPage() {
                         <span className="truncate">{file.mediaData ? 'Uploaded' : 'Choose file'}</span>
                         <input
                           type="file"
+                          accept={file.mediaType === 'VIDEO' ? 'video/*' : '.pdf,application/pdf'}
                           onChange={(event) => handleFileChange(event.target.files?.[0] || null, 'new', index)}
                           className="hidden"
                         />
@@ -484,6 +577,7 @@ export default function DashboardModulesPage() {
                     setShowAddForm(false);
                     setNewModule(emptyForm);
                     setAddError('');
+                    setAddFieldErrors({});
                   }}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
                 >
@@ -497,9 +591,22 @@ export default function DashboardModulesPage() {
       ) : null}
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold">Module list</h3>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-lg font-semibold">Module list</h3>
+          <div className="relative sm:max-w-xs flex-1">
+            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              value={moduleSearch}
+              onChange={(e) => setModuleSearch(e.target.value)}
+              placeholder="Search modules..."
+              className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
+            />
+          </div>
+        </div>
         <div className="mt-4 grid gap-4">
-          {modules.map((moduleItem) => (
+          {modules.filter((m) => !moduleSearch || m.title?.toLowerCase().includes(moduleSearch.toLowerCase()) || m.description?.toLowerCase().includes(moduleSearch.toLowerCase())).map((moduleItem) => (
             <div key={moduleItem.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-4">
               <div>
                 <p className="text-sm font-semibold text-ocean-600">Module {moduleItem.order}</p>
@@ -545,7 +652,7 @@ export default function DashboardModulesPage() {
                 ) : null}
                 {user.role === 'SYSTEM_ADMIN' ? (
                   <button
-                    onClick={() => handleDeleteModule(moduleItem.id)}
+                    onClick={() => setDeleteConfirm({ open: true, id: moduleItem.id })}
                     className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
                     title="Delete"
                   >
@@ -558,54 +665,66 @@ export default function DashboardModulesPage() {
 
               {user.role === 'SYSTEM_ADMIN' && editingId === moduleItem.id ? (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-8">
-                  <div className="w-full max-w-4xl rounded-3xl bg-white p-6 shadow-xl">
+                  <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Edit module</p>
                         <h3 className="mt-2 text-xl font-semibold text-slate-900">{editForm.title}</h3>
                       </div>
                       <button
-                        onClick={() => setEditingId(null)}
+                        onClick={() => { setEditingId(null); setEditFieldErrors({}); }}
                         className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600"
                       >
                         Close
                       </button>
                     </div>
                     <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase text-slate-400">Module title</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase text-slate-400">
+                      Module title <span className="text-red-500">*</span>
+                    </label>
                     <input
                       value={editForm.title}
-                      onChange={(event) => setEditForm({ ...editForm, title: event.target.value })}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                      onChange={(event) => { setEditForm({ ...editForm, title: event.target.value }); setEditFieldErrors((e) => ({ ...e, title: '' })); }}
+                      className={`w-full rounded-xl border px-4 py-2 ${errBorder('title', editFieldErrors)}`}
                     />
+                    {editFieldErrors.title ? <p className="text-xs text-red-500">{editFieldErrors.title}</p> : null}
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase text-slate-400">Order</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase text-slate-400">
+                      Order <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="number"
                       value={editForm.order}
-                      onChange={(event) => setEditForm({ ...editForm, order: Number(event.target.value) })}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                      onChange={(event) => { setEditForm({ ...editForm, order: Number(event.target.value) }); setEditFieldErrors((e) => ({ ...e, order: '' })); }}
+                      className={`w-full rounded-xl border px-4 py-2 ${errBorder('order', editFieldErrors)}`}
                     />
+                    {editFieldErrors.order ? <p className="text-xs text-red-500">{editFieldErrors.order}</p> : null}
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase text-slate-400">Deadline days</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase text-slate-400">
+                      Deadline days <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="number"
                       value={editForm.deadlineDays}
-                      onChange={(event) => setEditForm({ ...editForm, deadlineDays: Number(event.target.value) })}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-2"
+                      onChange={(event) => { setEditForm({ ...editForm, deadlineDays: Number(event.target.value) }); setEditFieldErrors((e) => ({ ...e, deadlineDays: '' })); }}
+                      className={`w-full rounded-xl border px-4 py-2 ${errBorder('deadlineDays', editFieldErrors)}`}
                     />
+                    {editFieldErrors.deadlineDays ? <p className="text-xs text-red-500">{editFieldErrors.deadlineDays}</p> : null}
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs font-semibold uppercase text-slate-400">Module description</label>
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-xs font-semibold uppercase text-slate-400">
+                      Module description <span className="text-red-500">*</span>
+                    </label>
                     <textarea
                       value={editForm.description}
-                      onChange={(event) => setEditForm({ ...editForm, description: event.target.value })}
+                      onChange={(event) => { setEditForm({ ...editForm, description: event.target.value }); setEditFieldErrors((e) => ({ ...e, description: '' })); }}
                       rows={3}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                      className={`w-full rounded-xl border px-4 py-3 ${errBorder('description', editFieldErrors)}`}
                     />
+                    {editFieldErrors.description ? <p className="text-xs text-red-500">{editFieldErrors.description}</p> : null}
                   </div>
                   <div className="md:col-span-2 space-y-3">
                     <label className="text-xs font-semibold uppercase text-slate-400">Module files</label>
@@ -635,7 +754,7 @@ export default function DashboardModulesPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => file.id && handleDeleteExistingFile(editingId as string, file.id)}
+                            onClick={() => file.id && setFileDeleteConfirm({ open: true, moduleId: editingId as string, fileId: file.id })}
                             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-red-200 bg-white text-red-500 hover:bg-red-50"
                             title="Remove"
                           >
@@ -702,6 +821,7 @@ export default function DashboardModulesPage() {
                           <span className="truncate">{editFileDraft.mediaData ? 'Uploaded' : 'Choose file'}</span>
                           <input
                             type="file"
+                            accept={editFileDraft.mediaType === 'VIDEO' ? 'video/*' : '.pdf,application/pdf'}
                             onChange={(event) => handleFileChange(event.target.files?.[0] || null, 'edit')}
                             className="hidden"
                           />
@@ -740,18 +860,19 @@ export default function DashboardModulesPage() {
                       </div>
                     </div>
                     {editPendingFiles.length ? (
-                      <p className="text-xs text-slate-500">New files will be saved when you click "Save changes".</p>
+                      <p className="text-xs text-slate-500">New files will be saved when you click &quot;Save changes&quot;.</p>
                     ) : null}
                   </div>
                   <div className="md:col-span-2 flex gap-2">
                     <button
                       onClick={() => handleSaveEdit(moduleItem.id)}
-                      className="rounded-xl bg-ocean-600 px-4 py-2 text-xs font-semibold text-white"
+                      disabled={editSaveLoading}
+                      className="rounded-xl bg-ocean-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
                     >
-                      Save changes
+                      {editSaveLoading ? 'Saving...' : 'Save changes'}
                     </button>
                     <button
-                      onClick={() => setEditingId(null)}
+                      onClick={() => { setEditingId(null); setEditFieldErrors({}); }}
                       className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
                     >
                       Cancel
@@ -890,6 +1011,34 @@ export default function DashboardModulesPage() {
           </div>
         </div>
       ) : null}
+
+      {/* Delete module confirmation dialog */}
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        title="Delete module"
+        message="Are you sure you want to delete this module? All files within this module will also be deleted. This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleteLoading}
+        onConfirm={() => handleDeleteModule(deleteConfirm.id)}
+        onCancel={() => setDeleteConfirm({ open: false, id: '' })}
+      />
+
+      {/* Delete file confirmation dialog */}
+      <ConfirmDialog
+        open={fileDeleteConfirm.open}
+        title="Delete file"
+        message="Are you sure you want to remove this file from the module?"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={async () => {
+          await handleDeleteExistingFile(fileDeleteConfirm.moduleId, fileDeleteConfirm.fileId);
+          setFileDeleteConfirm({ open: false, moduleId: '', fileId: '' });
+        }}
+        onCancel={() => setFileDeleteConfirm({ open: false, moduleId: '', fileId: '' })}
+      />
     </div>
   );
 }

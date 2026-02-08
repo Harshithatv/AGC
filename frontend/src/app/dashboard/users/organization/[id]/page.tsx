@@ -13,6 +13,7 @@ type Organization = {
   maxUsers: number;
   startDate: string;
   purchases?: Array<{ purchasedAt: string }>;
+  adminName?: string;
 };
 
 type UserProgress = {
@@ -54,14 +55,46 @@ export default function AdminOrganizationUsersPage() {
     [organization]
   );
 
+  const orgType = (organization?.type || '').toUpperCase();
+  const orgName = cleanGroupSuffix(organization?.name);
+  const adminName = organization?.adminName || '';
+
+  const displayName =
+    orgType === 'INSTITUTION' && adminName
+      ? `${adminName} - ${orgName}`
+      : orgName || 'Account';
+
+  const typeLabel =
+    orgType === 'SINGLE'
+      ? 'Single User'
+      : orgType === 'GROUP'
+        ? 'Group'
+        : orgType === 'INSTITUTION'
+          ? 'Institution'
+          : orgType || 'Unknown';
+
+  const typeBadgeColor =
+    orgType === 'SINGLE'
+      ? 'bg-blue-50 text-blue-700'
+      : orgType === 'GROUP'
+        ? 'bg-purple-50 text-purple-700'
+        : orgType === 'INSTITUTION'
+          ? 'bg-amber-50 text-amber-700'
+          : 'bg-slate-100 text-slate-600';
+
   return (
     <div className="space-y-6">
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Account profile</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Account profile</p>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${typeBadgeColor}`}>
+                {typeLabel}
+              </span>
+            </div>
             <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-              {cleanGroupSuffix(organization?.name) || 'Account'}
+              {displayName}
             </h2>
             <p className="mt-2 text-sm text-slate-600">
               Users: {users.length}/{organization?.maxUsers ?? 0}

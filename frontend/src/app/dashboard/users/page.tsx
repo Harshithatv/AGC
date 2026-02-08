@@ -5,6 +5,9 @@ import { useAuth } from '@/lib/auth';
 import { bulkCreateUsers, createUser, listUsers, listAdminOrganizations, getOrganization } from '@/lib/api';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
+import { showToast } from '@/components/Toast';
+
+type FieldErrors = Record<string, string>;
 
 export default function DashboardUsersPage() {
   const { user, token } = useAuth();
@@ -19,8 +22,12 @@ export default function DashboardUsersPage() {
   const [singleError, setSingleError] = useState('');
   const [singleLoading, setSingleLoading] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(true);
-  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addTab, setAddTab] = useState<'single' | 'bulk'>('single');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [orgSearch, setOrgSearch] = useState('');
+  const [orgFilter, setOrgFilter] = useState('ALL');
+  const [userSearch, setUserSearch] = useState('');
 
   const cleanGroupSuffix = (value?: string) => (value ? value.replace(/\s+Group$/i, '') : '');
 
@@ -37,29 +44,32 @@ export default function DashboardUsersPage() {
     }
   }, [token, user]);
 
+  const validateUserForm = (): boolean => {
+    const errors: FieldErrors = {};
+    if (!newUser.name.trim()) errors.name = 'Full name is required';
+    if (!newUser.email.trim()) errors.email = 'Email is required';
+    else if (!/^\S+@\S+\.\S+$/.test(newUser.email.trim())) errors.email = 'Please enter a valid email address';
+    if (!newUser.password.trim()) errors.password = 'Password is required';
+    else if (newUser.password.trim().length < 6) errors.password = 'Password must be at least 6 characters';
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleAddUser = async () => {
     if (!token) return;
     setSingleError('');
+    if (!validateUserForm()) return;
+
     const payload = {
       name: newUser.name.trim(),
       email: newUser.email.trim(),
       password: newUser.password.trim()
     };
-    if (!payload.name || !payload.email || !payload.password) {
-      setSingleError('Name, email, and password are required.');
-      return;
-    }
-    if (!/^\S+@\S+\.\S+$/.test(payload.email)) {
-      setSingleError('Please enter a valid email address.');
-      return;
-    }
-    if (payload.password.length < 6) {
-      setSingleError('Password must be at least 6 characters.');
-      return;
-    }
+
     if (org && typeof org.userCount === 'number' && typeof org.maxUsers === 'number') {
       if (org.userCount >= org.maxUsers) {
         setSingleError('User limit reached for this package.');
+        showToast('User limit reached for this package', 'error');
         return;
       }
     }
@@ -73,8 +83,13 @@ export default function DashboardUsersPage() {
         setOrg(orgData as any);
       }
       setNewUser({ name: '', email: '', password: '' });
+      setFieldErrors({});
+      setShowAddModal(false);
+      showToast('User added successfully', 'success');
     } catch (err) {
-      setSingleError(err instanceof Error ? err.message : 'Unable to add user');
+      const msg = err instanceof Error ? err.message : 'Unable to add user';
+      setSingleError(msg);
+      showToast(msg, 'error');
     } finally {
       setSingleLoading(false);
     }
@@ -107,6 +122,7 @@ export default function DashboardUsersPage() {
     if (org && typeof org.userCount === 'number' && typeof org.maxUsers === 'number') {
       if (org.userCount + usersPayload.length > org.maxUsers) {
         setBulkError('User limit exceeded for this package.');
+        showToast('User limit exceeded for this package', 'error');
         return;
       }
     }
@@ -122,8 +138,12 @@ export default function DashboardUsersPage() {
       }
       setBulkText('');
       setBulkFileName('');
+      setShowAddModal(false);
+      showToast('Users uploaded successfully', 'success');
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : 'Unable to upload users');
+      const msg = err instanceof Error ? err.message : 'Unable to upload users';
+      setBulkError(msg);
+      showToast(msg, 'error');
     } finally {
       setBulkLoading(false);
     }
@@ -178,8 +198,12 @@ export default function DashboardUsersPage() {
           const orgData = await getOrganization(token);
           setOrg(orgData as any);
         }
+        setShowAddModal(false);
+        showToast('Users uploaded successfully', 'success');
       } catch (err) {
-        setBulkError(err instanceof Error ? err.message : 'Unable to upload users');
+        const msg = err instanceof Error ? err.message : 'Unable to upload users';
+        setBulkError(msg);
+        showToast(msg, 'error');
       } finally {
         setBulkLoading(false);
       }
@@ -187,9 +211,37 @@ export default function DashboardUsersPage() {
     reader.readAsArrayBuffer(file);
   };
 
+  const errBorder = (field: string) =>
+    fieldErrors[field] ? 'border-red-400' : 'border-slate-200';
+
   if (!user) return null;
 
   if (user.role === 'SYSTEM_ADMIN') {
+    // Dynamically get all unique org types from the data
+    const allOrgTypes = (() => {
+      const types = new Set<string>();
+      orgs.forEach((o) => { if (o.type) types.add(o.type.toUpperCase()); });
+      const order = ['SINGLE', 'GROUP', 'INSTITUTION'];
+      return Array.from(types).sort((a, b) => {
+        const ia = order.indexOf(a);
+        const ib = order.indexOf(b);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return a.localeCompare(b);
+      });
+    })();
+
+    const typeLabels: Record<string, string> = { SINGLE: 'Single User', GROUP: 'Group', INSTITUTION: 'Institution' };
+
+    const filteredOrgs = orgs.filter((o) => {
+      const orgName = cleanGroupSuffix(o.name);
+      const adminN = o.adminName || '';
+      const matchSearch = !orgSearch || orgName.toLowerCase().includes(orgSearch.toLowerCase()) || adminN.toLowerCase().includes(orgSearch.toLowerCase());
+      const matchType = orgFilter === 'ALL' || (o.type || '').toUpperCase() === orgFilter;
+      return matchSearch && matchType;
+    });
+
     return (
       <div className="space-y-4 sm:space-y-6">
         <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
@@ -198,10 +250,64 @@ export default function DashboardUsersPage() {
             Review package holders and manage access in a single place.
           </p>
         </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative flex-1 sm:max-w-xs">
+              <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                value={orgSearch}
+                onChange={(e) => setOrgSearch(e.target.value)}
+                placeholder="Search by organization or admin name..."
+                className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-slate-500">Type:</label>
+              <select
+                value={orgFilter}
+                onChange={(e) => setOrgFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
+              >
+                <option value="ALL">All Types</option>
+                {allOrgTypes.map((type) => (
+                  <option key={type} value={type}>{typeLabels[type] || type}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
         <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
-          {orgs.map((org) => {
-            const displayName = cleanGroupSuffix(org.name);
-            
+          {filteredOrgs.map((org) => {
+            const orgName = cleanGroupSuffix(org.name);
+            const adminName = org.adminName || '';
+            const orgType = (org.type || '').toUpperCase();
+
+            // For institution: "Admin Name - School Name", otherwise just org name
+            const displayName =
+              orgType === 'INSTITUTION' && adminName
+                ? `${adminName} - ${orgName}`
+                : orgName;
+
+            const typeLabel =
+              orgType === 'SINGLE'
+                ? 'Single User'
+                : orgType === 'GROUP'
+                  ? 'Group'
+                  : orgType === 'INSTITUTION'
+                    ? 'Institution'
+                    : orgType || 'Unknown';
+
+            const typeBadgeColor =
+              orgType === 'SINGLE'
+                ? 'bg-blue-50 text-blue-700'
+                : orgType === 'GROUP'
+                  ? 'bg-purple-50 text-purple-700'
+                  : orgType === 'INSTITUTION'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'bg-slate-100 text-slate-600';
+
             return (
               <Link
                 key={org.id}
@@ -215,8 +321,8 @@ export default function DashboardUsersPage() {
                       Users: {org.userCount}/{org.maxUsers}
                     </p>
                   </div>
-                  <span className="flex-shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 sm:px-3 sm:py-1">
-                    Active
+                  <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold sm:px-3 sm:py-1 ${typeBadgeColor}`}>
+                    {typeLabel}
                   </span>
                 </div>
               </Link>
@@ -230,130 +336,218 @@ export default function DashboardUsersPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="text-lg font-semibold sm:text-xl">User management</h2>
-        <p className="mt-1 text-xs text-slate-600 sm:mt-2 sm:text-sm">
-          Add learners, upload in bulk, and keep track of active accounts.
-        </p>
-      </div>
-
-      <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-base font-semibold sm:text-lg">Add learners</h3>
-            <p className="mt-1 text-xs text-slate-600 sm:text-sm">
-              Choose single add or bulk upload to onboard learners.
+            <h2 className="text-lg font-semibold sm:text-xl">User management</h2>
+            <p className="mt-1 text-xs text-slate-600 sm:mt-2 sm:text-sm">
+              Add learners, upload in bulk, and keep track of active accounts.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setShowAddForm((prev) => !prev)}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm bg-ocean-600"
-            >
-              {showAddForm ? 'Hide add user' : 'Add user'}
-            </button>
-            <button
-              onClick={() => setShowBulkForm((prev) => !prev)}
-              className="rounded-lg border border-ocean-200 px-3 py-1.5 text-xs font-semibold text-ocean-700 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm"
-            >
-              {showBulkForm ? 'Hide bulk upload' : 'Bulk upload'}
-            </button>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-4 sm:mt-6 sm:gap-6 lg:grid-cols-2">
-          {showAddForm ? (
-            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 sm:rounded-2xl sm:p-5">
-              <h4 className="text-sm font-semibold sm:text-base">Add a single user</h4>
-              <p className="mt-1 text-xs text-slate-600 sm:mt-2 sm:text-sm">Create a learner profile with login details.</p>
-              <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
-                <input
-                  placeholder="Full name"
-                  value={newUser.name}
-                  onChange={(event) => setNewUser({ ...newUser, name: event.target.value })}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm sm:rounded-xl sm:px-4"
-                />
-                <input
-                  placeholder="Email"
-                  value={newUser.email}
-                  onChange={(event) => setNewUser({ ...newUser, email: event.target.value })}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm sm:rounded-xl sm:px-4"
-                />
-                <div className="relative w-full">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Temporary password"
-                    value={newUser.password}
-                    onChange={(event) => setNewUser({ ...newUser, password: event.target.value })}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 pr-10 text-sm sm:rounded-xl sm:px-4"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPassword ? (
-                      <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                <button
-                  onClick={handleAddUser}
-                  disabled={singleLoading}
-                  className="rounded-lg bg-ocean-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm"
-                >
-                  {singleLoading ? 'Adding...' : 'Add user'}
-                </button>
-                {singleError ? <p className="text-xs text-red-500 sm:text-sm">{singleError}</p> : null}
-              </div>
-            </div>
-          ) : null}
-          {showBulkForm ? (
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-              <h4 className="text-base font-semibold">Bulk upload users</h4>
-              <p className="mt-2 text-sm text-slate-600">
-                Upload an Excel file with columns: name, email, password.
-              </p>
-              <label className="mt-4 flex cursor-pointer items-center justify-between rounded-2xl border border-dashed border-ocean-200 bg-ocean-50 px-4 py-4 text-sm text-ocean-700">
-                <span>{bulkFileName ? bulkFileName : 'Choose .xlsx or .csv file'}</span>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ocean-700">Browse</span>
-                <input
-                  type="file"
-                  accept=".xlsx,.csv"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) handleBulkFile(file);
-                  }}
-                />
-              </label>
-              {/* <div className="mt-4">
-                <p className="text-xs text-slate-500">Optional: paste CSV rows below if needed.</p>
-                <textarea
-                  value={bulkText}
-                  onChange={(event) => setBulkText(event.target.value)}
-                  rows={5}
-                  className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3"
-                  placeholder="Jane Doe,jane@example.com,Temp1234"
-                />
-              </div> */}
-              {bulkError ? <p className="mt-3 text-sm text-red-500">{bulkError}</p> : null}
-              {/* <button
-                onClick={handleBulkUpload}
-                disabled={bulkLoading}
-                className="mt-3 rounded-xl border border-ocean-200 px-4 py-2 text-sm font-semibold text-ocean-700 disabled:opacity-60"
-              >
-                {bulkLoading ? 'Uploading...' : 'Upload users'}
-              </button> */}
-            </div>
-          ) : null}
+          <button
+            onClick={() => { setShowAddModal(true); setAddTab('single'); setSingleError(''); setBulkError(''); setFieldErrors({}); }}
+            className="inline-flex items-center gap-2 rounded-xl bg-ocean-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-ocean-700 transition-colors"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add learners
+          </button>
         </div>
       </div>
+
+      {/* Add learners modal */}
+      {showAddModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-8">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl sm:rounded-3xl sm:p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Add learners</p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900 sm:text-xl">Onboard new learners</h3>
+                <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                  Choose single add or bulk upload to add learners to your account.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddModal(false);
+                  setNewUser({ name: '', email: '', password: '' });
+                  setFieldErrors({});
+                  setSingleError('');
+                  setBulkError('');
+                  setBulkText('');
+                  setBulkFileName('');
+                }}
+                className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="mt-5 flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+              <button
+                onClick={() => setAddTab('single')}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${
+                  addTab === 'single'
+                    ? 'bg-white text-ocean-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <span className="flex items-center justify-center gap-1.5">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Single add
+                </span>
+              </button>
+              <button
+                onClick={() => setAddTab('bulk')}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${
+                  addTab === 'bulk'
+                    ? 'bg-white text-ocean-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <span className="flex items-center justify-center gap-1.5">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Bulk upload
+                </span>
+              </button>
+            </div>
+
+            {/* Single add tab */}
+            {addTab === 'single' ? (
+              <div className="mt-5 space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase text-slate-400">
+                    Full name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    placeholder="Enter full name"
+                    value={newUser.name}
+                    onChange={(event) => { setNewUser({ ...newUser, name: event.target.value }); setFieldErrors((e) => ({ ...e, name: '' })); }}
+                    className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm ${errBorder('name')}`}
+                  />
+                  {fieldErrors.name ? <p className="text-xs text-red-500">{fieldErrors.name}</p> : null}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase text-slate-400">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    placeholder="Enter email address"
+                    value={newUser.email}
+                    onChange={(event) => { setNewUser({ ...newUser, email: event.target.value }); setFieldErrors((e) => ({ ...e, email: '' })); }}
+                    className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm ${errBorder('email')}`}
+                  />
+                  {fieldErrors.email ? <p className="text-xs text-red-500">{fieldErrors.email}</p> : null}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase text-slate-400">
+                    Temporary password <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative w-full">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter temporary password"
+                      value={newUser.password}
+                      onChange={(event) => { setNewUser({ ...newUser, password: event.target.value }); setFieldErrors((e) => ({ ...e, password: '' })); }}
+                      className={`w-full rounded-xl border bg-white px-4 py-2.5 pr-10 text-sm ${errBorder('password')}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? (
+                        <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  {fieldErrors.password ? <p className="text-xs text-red-500">{fieldErrors.password}</p> : null}
+                </div>
+                {singleError ? <p className="text-xs text-red-500">{singleError}</p> : null}
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={handleAddUser}
+                    disabled={singleLoading}
+                    className="rounded-xl bg-ocean-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60 hover:bg-ocean-700 transition-colors"
+                  >
+                    {singleLoading ? 'Adding...' : 'Add user'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddModal(false);
+                      setNewUser({ name: '', email: '', password: '' });
+                      setFieldErrors({});
+                      setSingleError('');
+                    }}
+                    className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Bulk upload tab */}
+            {addTab === 'bulk' ? (
+              <div className="mt-5 space-y-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold text-slate-700 sm:text-sm">File format requirements</p>
+                  <p className="mt-1 text-[11px] text-slate-500 sm:text-xs">
+                    Upload an Excel (.xlsx) or CSV file with columns: <span className="font-semibold">name</span>, <span className="font-semibold">email</span>, <span className="font-semibold">password</span>
+                  </p>
+                </div>
+                <label className="flex cursor-pointer items-center justify-between rounded-2xl border-2 border-dashed border-ocean-200 bg-ocean-50/50 px-5 py-5 text-sm text-ocean-700 transition hover:border-ocean-400 hover:bg-ocean-50">
+                  <div className="flex items-center gap-3">
+                    <svg className="h-8 w-8 text-ocean-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">{bulkFileName ? bulkFileName : 'Choose file to upload'}</p>
+                      <p className="text-xs text-slate-500">.xlsx or .csv · Max 100 users</p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-ocean-700 shadow-sm">Browse</span>
+                  <input
+                    type="file"
+                    accept=".xlsx,.csv"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) handleBulkFile(file);
+                    }}
+                  />
+                </label>
+                {bulkError ? <p className="text-sm text-red-500">{bulkError}</p> : null}
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      setShowAddModal(false);
+                      setBulkError('');
+                      setBulkText('');
+                      setBulkFileName('');
+                    }}
+                    className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -365,8 +559,19 @@ export default function DashboardUsersPage() {
             Total: {users.length}
           </span>
         </div>
+        <div className="mt-3 relative sm:max-w-xs">
+          <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            placeholder="Search by name or email..."
+            className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
+          />
+        </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {users.map((member) => (
+          {users.filter((m) => !userSearch || m.name?.toLowerCase().includes(userSearch.toLowerCase()) || m.email?.toLowerCase().includes(userSearch.toLowerCase())).map((member) => (
             <Link
               key={member.id}
               href={`/dashboard/users/user/${member.id}`}

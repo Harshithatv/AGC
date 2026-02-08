@@ -139,12 +139,22 @@ export class AdminService {
   }
 
   async getOrganization(id: string) {
-    return this.prisma.organization.findUnique({
+    const organization = await this.prisma.organization.findUnique({
       where: { id },
       include: {
-        purchases: { orderBy: { purchasedAt: 'desc' }, take: 1 }
+        purchases: { orderBy: { purchasedAt: 'desc' }, take: 1 },
+        users: {
+          where: { role: Role.ORG_ADMIN },
+          select: { name: true },
+          take: 1
+        }
       }
     });
+
+    if (!organization) return null;
+
+    const adminName = organization.users?.[0]?.name || '';
+    return { ...organization, adminName };
   }
 
   async listOrganizationUsersWithProgress(organizationId: string) {

@@ -5,13 +5,15 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { getMyModules, startModule } from '@/lib/api';
+import { getCertificate, getMyModules, startModule } from '@/lib/api';
 
 export default function CourseModulesPage() {
   const router = useRouter();
   const { user, token, logout, ready } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
+  const [certificate, setCertificate] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isCertified = !!certificate?.certificate;
   const completedCount = modules.filter((moduleItem) => moduleItem.status === 'COMPLETED').length;
   const totalProgress = modules.length ? Math.round((completedCount / modules.length) * 100) : 0;
 
@@ -28,12 +30,81 @@ export default function CourseModulesPage() {
       return;
     }
     getMyModules(token).then((data) => setModules(data as any[]));
+    getCertificate(token).then((data) => setCertificate(data));
   }, [token, user, router, ready]);
+
+  const maxOrder = modules.length ? Math.max(...modules.map((m) => m.order ?? 0)) : 0;
 
   const handleStart = async (id: string) => {
     if (!token) return;
     await startModule(token, id);
     router.push(`/course/modules/${id}`);
+  };
+
+  const handleDownloadCertificate = async () => {
+    if (!certificate?.certificate) return;
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    doc.setDrawColor(224, 200, 120);
+    doc.setLineWidth(5);
+    doc.rect(28, 28, pageWidth - 56, pageHeight - 56);
+    doc.setDrawColor(230, 232, 240);
+    doc.setLineWidth(1.5);
+    doc.rect(44, 44, pageWidth - 88, pageHeight - 88);
+
+    doc.setTextColor(176, 132, 40);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(14);
+    doc.text('ACADEMIC GUIDE COURSE', pageWidth / 2, 110, { align: 'center' });
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(36);
+    doc.text('Certificate of Completion', pageWidth / 2, 155, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(14);
+    doc.text('This is to certify that', pageWidth / 2, 200, { align: 'center' });
+
+    doc.setFont('times', 'bold');
+    doc.setFontSize(30);
+    doc.text(certificate.certificate.issuedTo, pageWidth / 2, 245, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(14);
+    doc.text('has successfully completed the programme', pageWidth / 2, 285, { align: 'center' });
+
+    doc.setFont('times', 'bold');
+    doc.setFontSize(20);
+    doc.text(certificate.certificate.program, pageWidth / 2, 320, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    const issuedDate = new Date(certificate.certificate.issuedAt).toLocaleDateString();
+    doc.text(`Issued to: ${certificate.certificate.issuedEmail}`, pageWidth / 2, 360, { align: 'center' });
+    doc.text(`Issued on: ${issuedDate}`, pageWidth / 2, 382, { align: 'center' });
+
+    doc.setDrawColor(176, 132, 40);
+    doc.setLineWidth(1);
+    doc.circle(pageWidth / 2, pageHeight - 130, 36, 'S');
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
+    doc.text('AGC', pageWidth / 2, pageHeight - 126, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Certified', pageWidth / 2, pageHeight - 112, { align: 'center' });
+
+    doc.setFontSize(11);
+    doc.setTextColor(51, 65, 85);
+    doc.text('Academic Guide Course & Certification', pageWidth / 2, pageHeight - 70, { align: 'center' });
+    doc.text('AGC Learning Portal', pageWidth / 2, pageHeight - 52, { align: 'center' });
+
+    doc.save(`AGC-Certificate-${certificate.certificate.issuedTo.replace(/\s+/g, '-')}.pdf`);
   };
 
   return (
@@ -121,24 +192,34 @@ export default function CourseModulesPage() {
               <span className="whitespace-nowrap">{modules.length} modules</span>
             </div>
           </div>
-          <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <div className={`mt-4 rounded-2xl border p-4 ${isCertified ? 'border-emerald-100 bg-emerald-50/50' : 'border-slate-100 bg-slate-50'}`}>
             <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
               <span>Total progress</span>
-              <span>{totalProgress}%</span>
+              <span className={isCertified ? 'text-emerald-600' : ''}>{isCertified ? '100' : totalProgress}%</span>
             </div>
             <div className="mt-2 h-2 w-full rounded-full bg-white">
-              <div className="h-2 rounded-full bg-ocean-600" style={{ width: `${totalProgress}%` }} />
+              <div className={`h-2 rounded-full ${isCertified ? 'bg-emerald-500' : 'bg-ocean-600'}`} style={{ width: isCertified ? '100%' : `${totalProgress}%` }} />
             </div>
-            <p className="mt-2 text-xs text-slate-500">
-              {completedCount} module{completedCount === 1 ? '' : 's'} completed
+            <p className={`mt-2 text-xs ${isCertified ? 'font-semibold text-emerald-600' : 'text-slate-500'}`}>
+              {isCertified ? (
+                <span className="flex items-center gap-1">🏅 All modules completed · Certificate issued</span>
+              ) : (
+                <>{completedCount} module{completedCount === 1 ? '' : 's'} completed</>
+              )}
             </p>
           </div>
           <div className="mt-4 space-y-4">
-            {modules.map((moduleItem) => (
+            {modules.map((moduleItem) => {
+              const isLast = moduleItem.order === maxOrder;
+              return (
               <div
                 key={moduleItem.id}
                 className={`rounded-2xl border p-4 ${
-                  moduleItem.isActive ? 'border-slate-100 bg-white' : 'border-slate-100 bg-slate-50'
+                  isCertified && isLast
+                    ? 'border-ocean-200 bg-gradient-to-br from-ocean-50/50 to-blue-50/50'
+                    : moduleItem.isActive
+                      ? 'border-slate-100 bg-white'
+                      : 'border-slate-100 bg-slate-50'
                 }`}
               >
                 <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -154,20 +235,44 @@ export default function CourseModulesPage() {
                       <p className="text-xs font-semibold uppercase text-ocean-600">Module {moduleItem.order}</p>
                       <h3 className="text-base font-semibold text-slate-900">{moduleItem.title}</h3>
                       <p className="mt-1 text-sm text-slate-600">{moduleItem.description}</p>
-                      <p className="mt-2 text-xs text-slate-500">
-                        {moduleItem.files?.length
-                          ? `${moduleItem.files.length} file${moduleItem.files.length === 1 ? '' : 's'}`
-                          : moduleItem.mediaType === 'PDF'
-                            ? 'PDF'
-                            : 'Video'}
-                      </p>
+                      {moduleItem.files?.length ? (
+                        <p className="mt-2 text-xs text-slate-500">
+                          {moduleItem.files.length} file{moduleItem.files.length === 1 ? '' : 's'}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex flex-col items-start gap-2 md:items-end">
-                    <span className="text-xs font-semibold uppercase text-slate-500 whitespace-nowrap">
-                      {moduleItem.status?.replace('_', ' ') || 'Not started'}
+                    <span className={`text-xs font-semibold uppercase whitespace-nowrap ${isCertified ? 'text-emerald-600' : 'text-slate-500'}`}>
+                      {isCertified ? 'Completed' : (moduleItem.status?.replace('_', ' ') || 'Not started')}
                     </span>
-                    {moduleItem.isActive ? (
+                    {isCertified && isLast ? (
+                      <div className="flex flex-col items-start gap-2 md:items-end">
+                        <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1">
+                          <span className="text-sm">🎓</span>
+                          <span className="text-xs font-semibold text-emerald-700">Certification Achieved</span>
+                        </div>
+                        <button
+                          onClick={handleDownloadCertificate}
+                          className="inline-flex items-center gap-2 rounded-xl bg-ocean-600 px-4 py-2 text-xs font-semibold text-white hover:bg-ocean-700 transition-colors"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Download Certificate
+                        </button>
+                      </div>
+                    ) : isCertified ? (
+                      <button
+                        disabled
+                        className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-600 opacity-70"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Completed
+                      </button>
+                    ) : moduleItem.isActive ? (
                       <button
                         onClick={() => handleStart(moduleItem.id)}
                         className="rounded-xl bg-ocean-600 px-4 py-2 text-xs font-semibold text-white"
@@ -180,7 +285,8 @@ export default function CourseModulesPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           <div className="mt-6 text-sm text-slate-500">
             <Link href="/course" className="font-semibold text-ocean-600">
