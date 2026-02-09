@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { listAdminPurchases } from '@/lib/api';
+import Pagination from '@/components/Pagination';
 
 const packageLabels: Record<string, string> = {
   SINGLE: 'Single User',
@@ -21,6 +22,8 @@ export default function DashboardPurchasesPage() {
   const [purchases, setPurchases] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const cleanGroupSuffix = (value?: string) => (value ? value.replace(/\s+Group$/i, '') : '');
 
   useEffect(() => {
@@ -64,6 +67,11 @@ export default function DashboardPurchasesPage() {
     });
   }, [purchases, search, filterType]);
 
+  const totalPages = Math.ceil(filteredPurchases.length / ITEMS_PER_PAGE);
+  const paginatedPurchases = useMemo(() => {
+    return filteredPurchases.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  }, [filteredPurchases, currentPage]);
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '—';
     const d = new Date(dateStr);
@@ -104,7 +112,7 @@ export default function DashboardPurchasesPage() {
             </svg>
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               placeholder="Search by name, email, or organization..."
               className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
             />
@@ -113,7 +121,7 @@ export default function DashboardPurchasesPage() {
             <label className="text-xs font-medium text-slate-500">Package:</label>
             <select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
             >
               <option value="ALL">All Packages</option>
@@ -148,7 +156,7 @@ export default function DashboardPurchasesPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {filteredPurchases.map((purchase) => {
+            {paginatedPurchases.map((purchase) => {
               const orgName = cleanGroupSuffix(purchase.organization?.name) || 'Unknown';
               const orgType = purchase.organization?.type || purchase.packageType;
               const maxUsers = purchase.organization?.maxUsers;
@@ -206,12 +214,16 @@ export default function DashboardPurchasesPage() {
           </div>
         )}
 
-        {/* Footer */}
+        {/* Pagination */}
         {filteredPurchases.length > 0 ? (
-          <div className="border-t border-slate-100 px-5 py-3">
-            <p className="text-xs text-slate-400">
-              Showing {filteredPurchases.length} of {purchases.length} purchase{purchases.length !== 1 ? 's' : ''}
-            </p>
+          <div className="px-5 py-3">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredPurchases.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+            />
           </div>
         ) : null}
       </div>

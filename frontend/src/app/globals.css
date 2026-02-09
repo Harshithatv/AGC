@@ -10,11 +10,12 @@ input, select, textarea {
   @apply text-slate-900;
 }
 
-::-webkit-scrollbar {
-  width: 10px;
+/* Hide scrollbar everywhere while keeping scroll functionality */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
 }
 
-::-webkit-scrollbar-thumb {
-  background: #cbd5f5;
-  border-radius: 999px;
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }

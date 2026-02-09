@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { getCertifiedLearners, getOrgCertifiedLearners } from '@/lib/api';
+import Pagination from '@/components/Pagination';
 
 type CertifiedLearner = {
   id: string;
@@ -19,6 +20,8 @@ export default function CertifiedLearnersPage() {
   const [learners, setLearners] = useState<CertifiedLearner[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     if (!token || !user) return;
@@ -79,7 +82,7 @@ export default function CertifiedLearnersPage() {
               </svg>
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
                 placeholder="Search by name, email, or organization..."
                 className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
               />
@@ -103,58 +106,71 @@ export default function CertifiedLearnersPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-slate-500">
-                {(() => {
-                  const filtered = learners.filter((l) => !search || l.name.toLowerCase().includes(search.toLowerCase()) || l.email.toLowerCase().includes(search.toLowerCase()) || (l.organization || '').toLowerCase().includes(search.toLowerCase()));
-                  return `${filtered.length} of ${learners.length} ${learners.length === 1 ? 'learner' : 'learners'} certified`;
-                })()}
-              </p>
-            </div>
-            
-            {learners.filter((l) => !search || l.name.toLowerCase().includes(search.toLowerCase()) || l.email.toLowerCase().includes(search.toLowerCase()) || (l.organization || '').toLowerCase().includes(search.toLowerCase())).map((learner) => (
-              <div
-                key={learner.id}
-                className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-4"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ocean-100 text-sm font-semibold text-ocean-600">
-                    {learner.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-900">{learner.name}</p>
-                    <p className="text-sm text-slate-500">{learner.email}</p>
-                  </div>
+          (() => {
+            const filteredLearners = learners.filter((l) => !search || l.name.toLowerCase().includes(search.toLowerCase()) || l.email.toLowerCase().includes(search.toLowerCase()) || (l.organization || '').toLowerCase().includes(search.toLowerCase()));
+            const totalPages = Math.ceil(filteredLearners.length / ITEMS_PER_PAGE);
+            const paginatedLearners = filteredLearners.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+            return (
+              <div className="space-y-3">
+                <div className="mb-4 flex items-center justify-between">
+                  <p className="text-sm text-slate-500">
+                    {filteredLearners.length} of {learners.length} {learners.length === 1 ? 'learner' : 'learners'} certified
+                  </p>
                 </div>
                 
-                <div className="flex items-center gap-6">
-                  {user?.role === 'SYSTEM_ADMIN' && learner.organization && (
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-slate-700">{learner.organization}</p>
+                {paginatedLearners.map((learner) => (
+                  <div
+                    key={learner.id}
+                    className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-4"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ocean-100 text-sm font-semibold text-ocean-600">
+                        {learner.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">{learner.name}</p>
+                        <p className="text-sm text-slate-500">{learner.email}</p>
+                      </div>
                     </div>
-                  )}
+                    
+                    <div className="flex items-center gap-6">
+                      {user?.role === 'SYSTEM_ADMIN' && learner.organization && (
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-slate-700">{learner.organization}</p>
+                        </div>
+                      )}
 
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-slate-700">
-                      {learner.completedModules}/{learner.totalModules} completed
-                    </p>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-slate-700">
+                          {learner.completedModules}/{learner.totalModules} completed
+                        </p>
+                      </div>
+                      
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-slate-700">Certified</p>
+                        <p className="text-xs text-slate-500">{formatDate(learner.certifiedAt)}</p>
+                      </div>
+                      
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                        <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-slate-700">Certified</p>
-                    <p className="text-xs text-slate-500">{formatDate(learner.certifiedAt)}</p>
-                  </div>
-                  
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
-                    <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
+                ))}
+                <div className="mt-4">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredLearners.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onPageChange={setCurrentPage}
+                  />
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })()
         )}
       </div>
     </div>

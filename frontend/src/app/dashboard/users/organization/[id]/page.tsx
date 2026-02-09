@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { getAdminOrganization, listAdminOrganizationUsers } from '@/lib/api';
+import Pagination from '@/components/Pagination';
 
 type Organization = {
   id: string;
@@ -37,6 +38,8 @@ export default function AdminOrganizationUsersPage() {
   const { user, token } = useAuth();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [users, setUsers] = useState<OrganizationUser[]>([]);
+  const [userPage, setUserPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const cleanGroupSuffix = (value?: string) => (value ? value.replace(/\s+Group$/i, '') : '');
 
   useEffect(() => {
@@ -116,8 +119,13 @@ export default function AdminOrganizationUsersPage() {
           <h3 className="text-lg font-semibold">Learners</h3>
         </div>
 
+        {(() => {
+          const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
+          const paginatedUsers = users.slice((userPage - 1) * ITEMS_PER_PAGE, userPage * ITEMS_PER_PAGE);
+          return (
+            <>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {users.map((member) => {
+          {paginatedUsers.map((member) => {
             const total = member.progress?.totalModules ?? 0;
             const completed = member.progress?.completedCount ?? 0;
             const percent = total ? Math.round((completed / total) * 100) : 0;
@@ -156,6 +164,18 @@ export default function AdminOrganizationUsersPage() {
             );
           })}
         </div>
+        <div className="mt-4">
+          <Pagination
+            currentPage={userPage}
+            totalPages={totalPages}
+            totalItems={users.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setUserPage}
+          />
+        </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );

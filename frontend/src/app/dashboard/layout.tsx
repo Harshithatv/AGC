@@ -156,30 +156,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       <div className="flex w-full">
-        {/* Desktop Sidebar */}
-        <aside className="hidden h-[calc(100vh-64px)] w-64 flex-shrink-0 border-r border-slate-200 bg-white px-4 py-6 md:block">
-          <nav className="space-y-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-ocean-50 hover:text-ocean-700"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs">
-                  {item.icon === "grid" && "▦"}
-                  {item.icon === "box" && "▢"}
-                  {item.icon === "users" && "👥"}
-                  {item.icon === "book" && "📘"}
-                  {item.icon === "receipt" && "🧾"}
-                  {item.icon === "badge" && "🏅"}
-                  {item.icon === "help" && "❓"}
-                </span>
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+        {/* Desktop Sidebar – fixed */}
+        <aside className="hidden w-64 flex-shrink-0 md:block">
+          <div className="sticky top-[57px] h-[calc(100vh-57px)] overflow-y-auto border-r border-slate-200 bg-white px-4 py-6">
+            <nav className="space-y-2">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-ocean-50 hover:text-ocean-700"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs">
+                    {item.icon === "grid" && "▦"}
+                    {item.icon === "box" && "▢"}
+                    {item.icon === "users" && "👥"}
+                    {item.icon === "book" && "📘"}
+                    {item.icon === "receipt" && "🧾"}
+                    {item.icon === "badge" && "🏅"}
+                    {item.icon === "help" && "❓"}
+                  </span>
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
         </aside>
-        <div className="w-full overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8">{children}</div>
+        <div className="min-h-[calc(100vh-57px)] w-full overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8">{children}</div>
       </div>
       <ToastContainer />
     </div>

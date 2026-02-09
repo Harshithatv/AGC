@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { createModule, deleteModule, deleteModuleFile, listAllModules, updateModule, getMyModules, uploadModuleFile } from '@/lib/api';
 import { showToast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import Pagination from '@/components/Pagination';
 
 type MediaType = 'VIDEO' | 'PDF';
 
@@ -49,6 +50,8 @@ export default function DashboardModulesPage() {
   const { user, token } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
   const [moduleSearch, setModuleSearch] = useState('');
+  const [modulePage, setModulePage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const [showAddForm, setShowAddForm] = useState(false);
   const [newModule, setNewModule] = useState<ModuleForm>(emptyForm);
   const [addError, setAddError] = useState('');
@@ -609,14 +612,20 @@ export default function DashboardModulesPage() {
             </svg>
             <input
               value={moduleSearch}
-              onChange={(e) => setModuleSearch(e.target.value)}
+              onChange={(e) => { setModuleSearch(e.target.value); setModulePage(1); }}
               placeholder="Search modules..."
               className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
             />
           </div>
         </div>
+        {(() => {
+          const filteredModules = modules.filter((m) => !moduleSearch || m.title?.toLowerCase().includes(moduleSearch.toLowerCase()) || m.description?.toLowerCase().includes(moduleSearch.toLowerCase()));
+          const totalPages = Math.ceil(filteredModules.length / ITEMS_PER_PAGE);
+          const paginatedModules = filteredModules.slice((modulePage - 1) * ITEMS_PER_PAGE, modulePage * ITEMS_PER_PAGE);
+          return (
+            <>
         <div className="mt-4 grid gap-4">
-          {modules.filter((m) => !moduleSearch || m.title?.toLowerCase().includes(moduleSearch.toLowerCase()) || m.description?.toLowerCase().includes(moduleSearch.toLowerCase())).map((moduleItem) => (
+          {paginatedModules.map((moduleItem) => (
             <div key={moduleItem.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-4">
               <div>
                 <p className="text-sm font-semibold text-ocean-600">Module {moduleItem.order}</p>
@@ -895,6 +904,18 @@ export default function DashboardModulesPage() {
             </div>
           ))}
         </div>
+        <div className="mt-4">
+          <Pagination
+            currentPage={modulePage}
+            totalPages={totalPages}
+            totalItems={filteredModules.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setModulePage}
+          />
+        </div>
+            </>
+          );
+        })()}
       </div>
       {preview.open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">

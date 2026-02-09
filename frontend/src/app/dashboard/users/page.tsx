@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { bulkCreateUsers, createUser, listUsers, listAdminOrganizations, getOrganization } from '@/lib/api';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import { showToast } from '@/components/Toast';
+import Pagination from '@/components/Pagination';
 
 type FieldErrors = Record<string, string>;
 
@@ -28,6 +29,9 @@ export default function DashboardUsersPage() {
   const [orgSearch, setOrgSearch] = useState('');
   const [orgFilter, setOrgFilter] = useState('ALL');
   const [userSearch, setUserSearch] = useState('');
+  const [orgPage, setOrgPage] = useState(1);
+  const [userPage, setUserPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const cleanGroupSuffix = (value?: string) => (value ? value.replace(/\s+Group$/i, '') : '');
 
@@ -242,6 +246,9 @@ export default function DashboardUsersPage() {
       return matchSearch && matchType;
     });
 
+    const orgTotalPages = Math.ceil(filteredOrgs.length / ITEMS_PER_PAGE);
+    const paginatedOrgs = filteredOrgs.slice((orgPage - 1) * ITEMS_PER_PAGE, orgPage * ITEMS_PER_PAGE);
+
     return (
       <div className="space-y-4 sm:space-y-6">
         <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
@@ -258,7 +265,7 @@ export default function DashboardUsersPage() {
               </svg>
               <input
                 value={orgSearch}
-                onChange={(e) => setOrgSearch(e.target.value)}
+                onChange={(e) => { setOrgSearch(e.target.value); setOrgPage(1); }}
                 placeholder="Search by organization or admin name..."
                 className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
               />
@@ -267,7 +274,7 @@ export default function DashboardUsersPage() {
               <label className="text-xs font-medium text-slate-500">Type:</label>
               <select
                 value={orgFilter}
-                onChange={(e) => setOrgFilter(e.target.value)}
+                onChange={(e) => { setOrgFilter(e.target.value); setOrgPage(1); }}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
               >
                 <option value="ALL">All Types</option>
@@ -279,7 +286,7 @@ export default function DashboardUsersPage() {
           </div>
         </div>
         <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
-          {filteredOrgs.map((org) => {
+          {paginatedOrgs.map((org) => {
             const orgName = cleanGroupSuffix(org.name);
             const adminName = org.adminName || '';
             const orgType = (org.type || '').toUpperCase();
@@ -329,9 +336,22 @@ export default function DashboardUsersPage() {
             );
           })}
         </div>
+        <div className="mt-4">
+          <Pagination
+            currentPage={orgPage}
+            totalPages={orgTotalPages}
+            totalItems={filteredOrgs.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setOrgPage}
+          />
+        </div>
       </div>
     );
   }
+
+  const filteredUsers = users.filter((m) => !userSearch || m.name?.toLowerCase().includes(userSearch.toLowerCase()) || m.email?.toLowerCase().includes(userSearch.toLowerCase()));
+  const userTotalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice((userPage - 1) * ITEMS_PER_PAGE, userPage * ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -565,13 +585,13 @@ export default function DashboardUsersPage() {
           </svg>
           <input
             value={userSearch}
-            onChange={(e) => setUserSearch(e.target.value)}
+            onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }}
             placeholder="Search by name or email..."
             className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm transition focus:border-ocean-400 focus:outline-none focus:ring-2 focus:ring-ocean-100"
           />
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {users.filter((m) => !userSearch || m.name?.toLowerCase().includes(userSearch.toLowerCase()) || m.email?.toLowerCase().includes(userSearch.toLowerCase())).map((member) => (
+          {paginatedUsers.map((member) => (
             <Link
               key={member.id}
               href={`/dashboard/users/user/${member.id}`}
@@ -586,6 +606,15 @@ export default function DashboardUsersPage() {
               </div>
             </Link>
           ))}
+        </div>
+        <div className="mt-4">
+          <Pagination
+            currentPage={userPage}
+            totalPages={userTotalPages}
+            totalItems={filteredUsers.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setUserPage}
+          />
         </div>
       </div>
     </div>

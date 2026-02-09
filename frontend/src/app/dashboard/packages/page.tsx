@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { deletePricing, listAdminPricing, updatePricing, getOrganization, getPricing } from '@/lib/api';
 import { showToast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import Pagination from '@/components/Pagination';
 
 type FieldErrors = Record<string, string>;
 
@@ -19,6 +20,8 @@ export default function DashboardPackagesPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; packageType: string; isNew?: boolean }>({ open: false, packageType: '', isNew: false });
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [pkgPage, setPkgPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const defaultMeta: Record<string, { label: string; summary: string; features: string[]; highlight?: boolean }> = {
     SINGLE: {
@@ -256,8 +259,14 @@ export default function DashboardPackagesPage() {
             </button>
           </div>
           {deleteError ? <p className="text-sm text-red-600">{deleteError}</p> : null}
+          {(() => {
+            const visiblePackages = adminPricing.filter((item) => !item.isNew);
+            const totalPages = Math.ceil(visiblePackages.length / ITEMS_PER_PAGE);
+            const paginatedPackages = visiblePackages.slice((pkgPage - 1) * ITEMS_PER_PAGE, pkgPage * ITEMS_PER_PAGE);
+            return (
+              <>
           <div className="space-y-4">
-            {adminPricing.filter((item) => !item.isNew).map((item) => {
+            {paginatedPackages.map((item) => {
               const itemKey = item.id || item.packageType;
               const meta = defaultMeta[item.packageType];
               const displayLabel = item.label || meta?.label || item.packageType || 'New package';
@@ -314,6 +323,18 @@ export default function DashboardPackagesPage() {
               );
             })}
           </div>
+          <div className="mt-4">
+            <Pagination
+              currentPage={pkgPage}
+              totalPages={totalPages}
+              totalItems={visiblePackages.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setPkgPage}
+            />
+          </div>
+              </>
+            );
+          })()}
         </div>
       ) : null}
       {user.role === 'SYSTEM_ADMIN' && editingItem ? (

@@ -189,8 +189,8 @@ export default function DashboardOverviewPage() {
               {adminPurchases.length === 0 ? (
                 <p className="mt-4 text-center text-sm text-slate-400">No purchases yet</p>
               ) : (
-                <div className="mt-4 divide-y divide-slate-100">
-                  {adminPurchases.slice(0, 4).map((purchase) => {
+                <div className="mt-4 max-h-72 divide-y divide-slate-100 overflow-y-auto pr-1">
+                  {adminPurchases.slice(0, 10).map((purchase) => {
                     const orgType = (purchase.organization?.type || '').toUpperCase();
                     const badgeColor =
                       orgType === 'SINGLE' ? 'bg-blue-50 text-blue-600'
