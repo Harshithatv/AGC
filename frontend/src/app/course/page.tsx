@@ -337,7 +337,7 @@ export default function CoursePortalPage() {
         <section className="mx-auto w-full max-w-6xl px-6 pb-12" id="certification">
          <div className="rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
            <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr] lg:items-center">
-             <div>
+             <div >
                <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Certification</p>
                <h3 className="mt-2 text-2xl font-semibold text-slate-900">Certificate of Completion</h3>
                <p className="mt-3 text-sm text-slate-600">

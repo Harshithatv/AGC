@@ -515,7 +515,7 @@ export default function DashboardUsersPage() {
                     </svg>
                     <div>
                       <p className="text-sm font-semibold text-slate-700">{bulkFileName ? bulkFileName : 'Choose file to upload'}</p>
-                      <p className="text-xs text-slate-500">.xlsx or .csv · Max 100 users</p>
+                      <p className="text-xs text-slate-500">.xlsx or .csv</p>
                     </div>
                   </div>
                   <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-ocean-700 shadow-sm">Browse</span>

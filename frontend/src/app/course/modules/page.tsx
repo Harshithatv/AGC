@@ -12,6 +12,7 @@ export default function CourseModulesPage() {
   const { user, token, logout, ready } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
   const [certificate, setCertificate] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isCertified = !!certificate?.certificate;
   const completedCount = modules.filter((moduleItem) => moduleItem.status === 'COMPLETED').length;
@@ -29,8 +30,11 @@ export default function CourseModulesPage() {
       router.push('/dashboard');
       return;
     }
-    getMyModules(token).then((data) => setModules(data as any[]));
-    getCertificate(token).then((data) => setCertificate(data));
+    setLoading(true);
+    Promise.all([
+      getMyModules(token).then((data) => setModules(data as any[])),
+      getCertificate(token).then((data) => setCertificate(data))
+    ]).finally(() => setLoading(false));
   }, [token, user, router, ready]);
 
   const maxOrder = modules.length ? Math.max(...modules.map((m) => m.order ?? 0)) : 0;
@@ -181,6 +185,13 @@ export default function CourseModulesPage() {
 
       <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6" id="modules-list">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-ocean-200 border-t-ocean-600" />
+              <p className="mt-4 text-sm text-slate-500">Loading modules...</p>
+            </div>
+          ) : (
+          <>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Modules</p>
@@ -293,6 +304,8 @@ export default function CourseModulesPage() {
               ← Back to home
             </Link>
           </div>
+          </>
+          )}
         </div>
       </section>
 

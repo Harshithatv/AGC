@@ -1,12 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
-const stats = [
-  { label: 'Mandatory modules', value: '5' },
-  { label: 'Package options', value: '3' },
-  { label: 'Max users', value: '10' }
-];
-
 const coreAreas = [
   'UTL methodology and ethical observation',
   'Personalised learning design and scaffolding',
@@ -47,7 +41,7 @@ export default function HomePage() {
       <section className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-12 sm:gap-12 sm:px-6 sm:py-24 md:min-h-[70vh] md:grid-cols-2">
         <div className="space-y-4 sm:space-y-6">
           <span className="inline-block rounded-full bg-ocean-50 px-3 py-1 text-xs font-medium text-ocean-700 sm:px-4 sm:text-sm">
-            Academic Guide Training & Certification
+            Academic Guide Training &amp; Certification
           </span>
           <h1 className="text-3xl font-semibold leading-tight text-slate-900 sm:text-4xl md:text-5xl">
             A professional development pathway for Academic Guides
@@ -76,6 +70,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Programme purpose */}
       <section className="bg-slate-50">
         <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
           <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-ocean-50 via-white to-blue-50 p-5 shadow-sm sm:rounded-3xl sm:p-10">
@@ -84,7 +79,7 @@ export default function HomePage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Programme purpose</p>
                 <h2 className="text-3xl font-semibold text-slate-900">Why this programme exists</h2>
                 <p className="max-w-2xl text-slate-600">
-                  The Academic Guide Training & Certification is a professional development and certification programme for educators
+                  The Academic Guide Training &amp; Certification is a professional development and certification programme for educators
                   operating within the ALS ecosystem.
                 </p>
               </div>
@@ -93,7 +88,7 @@ export default function HomePage() {
               {coreAreas.map((area) => (
                 <div key={area} className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <div className="flex items-start gap-3">
-                    <span className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-ocean-100 text-xs font-semibold text-ocean-700">
+                    <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ocean-100 text-xs font-semibold text-ocean-700">
                       ✓
                     </span>
                     <span className="text-slate-700">{area}</span>

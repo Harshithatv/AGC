@@ -14,6 +14,7 @@ export default function ModuleViewerPage() {
   const { user, token, logout, ready } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
   const [certificate, setCertificate] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [showCertificatePopup, setShowCertificatePopup] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -35,8 +36,11 @@ export default function ModuleViewerPage() {
       router.push('/dashboard');
       return;
     }
-    getMyModules(token).then((data) => setModules(data as any[]));
-    getCertificate(token).then((data) => setCertificate(data));
+    setLoading(true);
+    Promise.all([
+      getMyModules(token).then((data) => setModules(data as any[])),
+      getCertificate(token).then((data) => setCertificate(data))
+    ]).finally(() => setLoading(false));
   }, [token, user, router, ready]);
 
   const moduleItem = useMemo(
@@ -183,6 +187,17 @@ export default function ModuleViewerPage() {
 
     doc.save(`AGC-Certificate-${certificate.certificate.issuedTo.replace(/\s+/g, '-')}.pdf`);
   };
+
+  if (loading || !moduleItem) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-ocean-200 border-t-ocean-600" />
+          <p className="text-sm text-slate-500">Loading module...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
