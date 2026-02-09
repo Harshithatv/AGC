@@ -40,6 +40,14 @@ export class ModulesService {
       mediaUrl: string;
     }>;
   }) {
+    // Check for duplicate module order
+    const existingWithOrder = await this.prisma.courseModule.findUnique({
+      where: { order: params.order }
+    });
+    if (existingWithOrder) {
+      throw new BadRequestException(`A module with order ${params.order} already exists`);
+    }
+
     return this.prisma.courseModule.create({
       data: {
         title: params.title,
@@ -74,6 +82,16 @@ export class ModulesService {
       mediaUrl: string;
     }>
   ) {
+    // Check for duplicate module order (exclude current module)
+    if (typeof updates.order === 'number') {
+      const existingWithOrder = await this.prisma.courseModule.findFirst({
+        where: { order: updates.order, id: { not: id } }
+      });
+      if (existingWithOrder) {
+        throw new BadRequestException(`A module with order ${updates.order} already exists`);
+      }
+    }
+
     return this.prisma.courseModule.update({ where: { id }, data: updates });
   }
 
@@ -166,7 +184,7 @@ export class ModulesService {
       this.prisma.organization.findUnique({ where: { id: organizationId } })
     ]);
 
-    // For certified users, filter out modules added after their certification
+    // For certified users, filter out modules AND files added after their certification
     const modules = certificate
       ? allModules.filter((m) => m.createdAt <= certificate.issuedAt)
       : allModules;
@@ -180,7 +198,10 @@ export class ModulesService {
 
     let unlocked = true;
     return modules.map((moduleItem) => {
-      const moduleFiles = moduleItem.files ?? [];
+      // For certified users, also filter out files added after certification
+      const moduleFiles = certificate
+        ? (moduleItem.files ?? []).filter((f) => f.createdAt <= certificate.issuedAt)
+        : (moduleItem.files ?? []);
       const moduleProgress = moduleProgressMap.get(moduleItem.id);
       const hasFiles = moduleFiles.length > 0;
       let fileUnlocked = unlocked;

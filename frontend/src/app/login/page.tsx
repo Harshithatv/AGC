@@ -41,7 +41,7 @@ export default function LoginPage() {
             <div className="relative hidden overflow-hidden px-8 py-10 sm:px-10 sm:py-12 lg:block">
               <img
                 src="/images/purchase-details.jpg"
-                alt="Academic Guide Course"
+                alt="Academic Guide Training & Certification"
                 className="absolute inset-0 h-full w-full object-cover"
               />
               <div className="absolute inset-0 bg-slate-900/55" />

@@ -18,8 +18,8 @@ export default function SiteHeader() {
     <header className="w-full border-b border-slate-200 bg-white/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 sm:gap-3">
-          <Image src="/images/logo.svg" alt="Academic Guide Course logo" width={36} height={36} className="h-8 w-8 sm:h-10 sm:w-10" />
-          <span className="text-base font-semibold text-ocean-700 sm:text-lg">Academic Guide Course</span>
+          <Image src="/images/logo.svg" alt="Academic Guide Training & Certification logo" width={36} height={36} className="h-8 w-8 sm:h-10 sm:w-10" />
+          <span className="text-base font-semibold text-ocean-700 sm:text-lg">Academic Guide Training & Certification</span>
         </Link>
         
         {/* Desktop Navigation */}

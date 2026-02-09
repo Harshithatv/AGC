@@ -80,7 +80,7 @@ model CourseModule {
   id               String           @id @default(uuid())
   title            String
   description      String
-  order            Int
+  order            Int              @unique
   deadlineDays     Int
   mediaType        ModuleMediaType
   mediaUrl         String
@@ -137,7 +137,7 @@ model Certificate {
   user         User     @relation(fields: [userId], references: [id])
   issuedAt     DateTime @default(now())
   totalModules Int
-  program      String   @default("Academic Guide Course & Certification")
+  program      String   @default("Academic Guide Training & Certification")
 }
 
 model PasswordResetToken {

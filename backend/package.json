@@ -1,7 +1,7 @@
 {
   "name": "agc-backend",
   "version": "1.0.0",
-  "description": "Academic Guide Course backend",
+  "description": "Academic Guide Training & Certification backend",
   "private": true,
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

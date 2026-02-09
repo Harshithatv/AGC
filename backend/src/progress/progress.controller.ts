@@ -19,7 +19,7 @@ export class ProgressController {
             issuedTo: user.name,
             issuedEmail: user.email,
             issuedAt: summary.issuedAt ?? new Date(),
-            program: 'Academic Guide Course & Certification'
+            program: 'Academic Guide Training & Certification'
           }
         : null
     };

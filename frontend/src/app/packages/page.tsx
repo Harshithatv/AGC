@@ -223,7 +223,7 @@ export default function PackagesPage() {
           <div className="text-center">
             <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">Everything you need to succeed</h2>
             <p className="mx-auto mt-2 max-w-lg text-sm text-slate-500">
-              Every package comes with the same powerful features to help you complete the Academic Guide Course.
+              Every package comes with the same powerful features to help you complete the Academic Guide Training & Certification.
             </p>
           </div>
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

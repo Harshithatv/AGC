@@ -55,7 +55,7 @@ export default function DashboardCoursePage() {
       <div className="rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
         <div className="grid gap-8 lg:grid-cols-[1.2fr,1fr] lg:items-center">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Academic Guide Course</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Academic Guide Training & Certification</p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-900">
               Your personalised learning workspace
             </h2>

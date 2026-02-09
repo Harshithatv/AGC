@@ -4,7 +4,7 @@ export default function SiteFooter() {
       <div className="mx-auto w-full max-w-6xl px-6 py-14">
         <div className="grid gap-10 md:grid-cols-[2fr,1fr,1fr,1fr]">
           <div className="space-y-4">
-            <p className="text-lg font-semibold text-slate-900">Academic Guide Course</p>
+            <p className="text-lg font-semibold text-slate-900">Academic Guide Training & Certification</p>
             <p className="text-sm text-slate-700">
               Professional development & certification for ALS educators. Built to support real-world academic
               guidance with structured learning and verified progress.
@@ -56,7 +56,7 @@ export default function SiteFooter() {
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-blue-200 pt-6 text-xs text-slate-600 md:flex-row">
-          <span>© 2026 Academic Guide Course. All rights reserved.</span>
+          <span>© 2026 Academic Guide Training & Certification. All rights reserved.</span>
           <div className="flex gap-4">
             <span className="hover:text-blue-700">Privacy</span>
             <span className="hover:text-blue-700">Terms</span>

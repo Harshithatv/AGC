@@ -101,7 +101,7 @@ export default function CourseModulesPage() {
 
     doc.setFontSize(11);
     doc.setTextColor(51, 65, 85);
-    doc.text('Academic Guide Course & Certification', pageWidth / 2, pageHeight - 70, { align: 'center' });
+    doc.text('Academic Guide Training & Certification', pageWidth / 2, pageHeight - 70, { align: 'center' });
     doc.text('AGC Learning Portal', pageWidth / 2, pageHeight - 52, { align: 'center' });
 
     doc.save(`AGC-Certificate-${certificate.certificate.issuedTo.replace(/\s+/g, '-')}.pdf`);
@@ -114,7 +114,7 @@ export default function CourseModulesPage() {
           <div className="flex items-center gap-2 sm:gap-3">
             <Image src="/images/logo.svg" alt="AGC logo" width={36} height={36} className="h-8 w-8 sm:h-10 sm:w-10" />
             <div>
-              <p className="hidden text-xs uppercase tracking-wide text-slate-400 sm:block">Academic Guide Course</p>
+              <p className="hidden text-xs uppercase tracking-wide text-slate-400 sm:block">Academic Guide Training & Certification</p>
               <h1 className="text-sm font-semibold text-slate-900 sm:text-lg">Learner Portal</h1>
             </div>
           </div>
@@ -300,7 +300,7 @@ export default function CourseModulesPage() {
         <div className="mx-auto w-full max-w-6xl px-6 py-14">
           <div className="grid gap-10 md:grid-cols-[2fr,1fr,1fr,1fr]">
             <div className="space-y-4">
-              <p className="text-lg font-semibold text-slate-900">Academic Guide Course</p>
+              <p className="text-lg font-semibold text-slate-900">Academic Guide Training & Certification</p>
               <p className="text-sm text-slate-700">
                 Professional development & certification for ALS educators. Built to support real-world academic
                 guidance with structured learning and verified progress.
@@ -352,7 +352,7 @@ export default function CourseModulesPage() {
           </div>
 
           <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-blue-200 pt-6 text-xs text-slate-600 md:flex-row">
-            <span>© 2026 Academic Guide Course. All rights reserved.</span>
+            <span>© 2026 Academic Guide Training & Certification. All rights reserved.</span>
             <div className="flex gap-4">
               <span className="hover:text-blue-700">Privacy</span>
               <span className="hover:text-blue-700">Terms</span>

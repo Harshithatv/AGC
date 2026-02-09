@@ -57,12 +57,12 @@ export class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1 style="margin: 0;">Academic Guide Course</h1>
+            <h1 style="margin: 0;">Academic Guide Training & Certification</h1>
             <p style="margin: 10px 0 0 0; opacity: 0.9;">Welcome to your learning portal</p>
           </div>
           <div class="content">
             <h2 style="margin-top: 0;">Hello ${name},</h2>
-            <p>Your account has been created for the <strong>Academic Guide Course</strong> by <strong>${organizationName}</strong>.</p>
+            <p>Your account has been created for the <strong>Academic Guide Training & Certification</strong> by <strong>${organizationName}</strong>.</p>
             <p>Use the credentials below to log in to your learning portal:</p>
             
             <div class="credentials">
@@ -85,7 +85,7 @@ export class EmailService {
             </p>
           </div>
           <div class="footer">
-            <p>© ${new Date().getFullYear()} Academic Guide Course. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} Academic Guide Training & Certification. All rights reserved.</p>
             <p>If you did not expect this email, please contact your administrator.</p>
           </div>
         </div>
@@ -94,11 +94,11 @@ export class EmailService {
     `;
 
     const textContent = `
-Academic Guide Course - Login Credentials
+Academic Guide Training & Certification - Login Credentials
 
 Hello ${name},
 
-Your account has been created for the Academic Guide Course by ${organizationName}.
+Your account has been created for the Academic Guide Training & Certification by ${organizationName}.
 
 Your login credentials:
 - Email: ${email}
@@ -113,9 +113,9 @@ If you did not expect this email, please contact your administrator.
 
     try {
       await this.transporter.sendMail({
-        from: `"Academic Guide Course" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+        from: `"Academic Guide Training & Certification" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
         to,
-        subject: 'Welcome to Academic Guide Course - Your Login Credentials',
+        subject: 'Welcome to Academic Guide Training & Certification - Your Login Credentials',
         text: textContent,
         html: htmlContent
       });
@@ -147,11 +147,11 @@ If you did not expect this email, please contact your administrator.
         <div class="container">
           <div class="header">
             <h1 style="margin: 0;">🔐 Password Reset</h1>
-            <p style="margin: 10px 0 0 0; opacity: 0.9;">Academic Guide Course</p>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Academic Guide Training & Certification</p>
           </div>
           <div class="content">
             <h2 style="margin-top: 0;">Hello ${name},</h2>
-            <p>We received a request to reset your password for your Academic Guide Course account.</p>
+            <p>We received a request to reset your password for your Academic Guide Training & Certification account.</p>
             <p>Click the button below to set a new password:</p>
             
             <p style="text-align: center;">
@@ -169,7 +169,7 @@ If you did not expect this email, please contact your administrator.
             </div>
           </div>
           <div class="footer">
-            <p>© ${new Date().getFullYear()} Academic Guide Course. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} Academic Guide Training & Certification. All rights reserved.</p>
             <p>This is an automated email. Please do not reply.</p>
           </div>
         </div>
@@ -178,11 +178,11 @@ If you did not expect this email, please contact your administrator.
     `;
 
     const textContent = `
-Password Reset - Academic Guide Course
+Password Reset - Academic Guide Training & Certification
 
 Hello ${name},
 
-We received a request to reset your password for your Academic Guide Course account.
+We received a request to reset your password for your Academic Guide Training & Certification account.
 
 Reset your password by visiting this link:
 ${resetLink}
@@ -191,14 +191,14 @@ This link expires in 1 hour.
 
 If you didn't request a password reset, you can safely ignore this email.
 
-© ${new Date().getFullYear()} Academic Guide Course
+© ${new Date().getFullYear()} Academic Guide Training & Certification
     `;
 
     try {
       await this.transporter.sendMail({
-        from: `"Academic Guide Course" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+        from: `"Academic Guide Training & Certification" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
         to,
-        subject: 'Password Reset - Academic Guide Course',
+        subject: 'Password Reset - Academic Guide Training & Certification',
         text: textContent,
         html: htmlContent
       });

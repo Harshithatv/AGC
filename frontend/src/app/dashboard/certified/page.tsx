@@ -134,6 +134,12 @@ export default function CertifiedLearnersPage() {
                       <p className="text-sm font-medium text-slate-700">{learner.organization}</p>
                     </div>
                   )}
+
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-slate-700">
+                      {learner.completedModules}/{learner.totalModules} completed
+                    </p>
+                  </div>
                   
                   <div className="text-right">
                     <p className="text-sm font-medium text-slate-700">Certified</p>

@@ -47,7 +47,7 @@ export default function HomePage() {
       <section className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-12 sm:gap-12 sm:px-6 sm:py-24 md:min-h-[70vh] md:grid-cols-2">
         <div className="space-y-4 sm:space-y-6">
           <span className="inline-block rounded-full bg-ocean-50 px-3 py-1 text-xs font-medium text-ocean-700 sm:px-4 sm:text-sm">
-            Academic Guide Course & Certification
+            Academic Guide Training & Certification
           </span>
           <h1 className="text-3xl font-semibold leading-tight text-slate-900 sm:text-4xl md:text-5xl">
             A professional development pathway for Academic Guides
@@ -68,7 +68,7 @@ export default function HomePage() {
         <div className="relative">
           <Image
             src="/images/hero.jpg"
-            alt="Academic Guide Course overview"
+            alt="Academic Guide Training & Certification overview"
             width={960}
             height={640}
             className="rounded-2xl shadow-xl sm:rounded-3xl"
@@ -84,12 +84,9 @@ export default function HomePage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Programme purpose</p>
                 <h2 className="text-3xl font-semibold text-slate-900">Why this programme exists</h2>
                 <p className="max-w-2xl text-slate-600">
-                  The Academic Guide Course is a professional development and certification programme for educators
+                  The Academic Guide Training & Certification is a professional development and certification programme for educators
                   operating within the ALS ecosystem.
                 </p>
-              </div>
-              <div className="rounded-2xl border border-ocean-100 bg-white/80 px-5 py-4 text-sm font-semibold text-ocean-700 shadow-sm">
-                5 core learning areas
               </div>
             </div>
             <div className="mt-8 grid gap-4 md:grid-cols-2">

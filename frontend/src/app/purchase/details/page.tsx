@@ -198,7 +198,7 @@ export default function PurchaseDetailsPage() {
 
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Get started with Academic Guide Course</h1>
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Get started with Academic Guide Training & Certification</h1>
           <p className="mt-2 text-sm text-slate-500 sm:text-base">Select your package and enter your details to create your account.</p>
         </div>
 

@@ -247,7 +247,12 @@ export default function DashboardModulesPage() {
     const errors: FieldErrors = {};
     if (!newModule.title.trim()) errors.title = 'Module title is required';
     if (!newModule.description.trim()) errors.description = 'Description is required';
-    if (!Number.isInteger(Number(newModule.order)) || Number(newModule.order) < 1) errors.order = 'Order must be a whole number greater than 0';
+    if (!Number.isInteger(Number(newModule.order)) || Number(newModule.order) < 1) {
+      errors.order = 'Order must be a whole number greater than 0';
+    } else {
+      const duplicate = modules.find((m) => m.order === Number(newModule.order));
+      if (duplicate) errors.order = `Order ${newModule.order} is already used by "${duplicate.title}"`;
+    }
     if (!Number.isInteger(Number(newModule.deadlineDays)) || Number(newModule.deadlineDays) < 1) errors.deadlineDays = 'Deadline must be a whole number greater than 0';
     const hasFile = newModule.files.some((f) => f.mediaData.trim());
     if (!hasFile) errors.files = 'Please upload at least one file';
@@ -259,7 +264,12 @@ export default function DashboardModulesPage() {
     const errors: FieldErrors = {};
     if (!editForm.title.trim()) errors.title = 'Module title is required';
     if (!editForm.description.trim()) errors.description = 'Description is required';
-    if (!Number.isInteger(Number(editForm.order)) || Number(editForm.order) < 1) errors.order = 'Order must be a whole number greater than 0';
+    if (!Number.isInteger(Number(editForm.order)) || Number(editForm.order) < 1) {
+      errors.order = 'Order must be a whole number greater than 0';
+    } else {
+      const duplicate = modules.find((m) => m.order === Number(editForm.order) && m.id !== editingId);
+      if (duplicate) errors.order = `Order ${editForm.order} is already used by "${duplicate.title}"`;
+    }
     if (!Number.isInteger(Number(editForm.deadlineDays)) || Number(editForm.deadlineDays) < 1) errors.deadlineDays = 'Deadline must be a whole number greater than 0';
     setEditFieldErrors(errors);
     return Object.keys(errors).length === 0;

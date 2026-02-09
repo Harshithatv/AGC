@@ -4,7 +4,7 @@ import Providers from './providers';
 import AppShell from '@/components/AppShell';
 
 export const metadata: Metadata = {
-  title: 'Academic Guide Course & Certification',
+  title: 'Academic Guide Training & Certification',
   description: 'Professional development and certification for Academic Guides.'
 };
 
