@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { getCertificate, getMyModules, changePassword } from '@/lib/api';
+import ContactForm from '@/components/ContactForm';
 
 export default function CoursePortalPage() {
   const router = useRouter();
@@ -120,7 +121,7 @@ export default function CoursePortalPage() {
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    const issuedDate = new Date(certificate.certificate.issuedAt).toLocaleDateString();
+    const issuedDate = new Date(certificate.certificate.issuedAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
     doc.text(`Issued to: ${certificate.certificate.issuedEmail}`, pageWidth / 2, 360, { align: 'center' });
     doc.text(`Issued on: ${issuedDate}`, pageWidth / 2, 382, { align: 'center' });
 
@@ -546,39 +547,7 @@ export default function CoursePortalPage() {
                 </div>
               </div>
             </div>
-            <form className="rounded-2xl border border-white/70 bg-white/80 p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold uppercase text-slate-500">Full name</label>
-                  <input
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm"
-                    placeholder="Your name"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase text-slate-500">Email address</label>
-                  <input
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm"
-                    placeholder="you@example.com"
-                    type="email"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase text-slate-500">Message</label>
-                  <textarea
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm"
-                    rows={4}
-                    placeholder="Tell us how we can help"
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="w-full rounded-xl bg-ocean-600 px-4 py-2 text-sm font-semibold text-white"
-                >
-                  Send message
-                </button>
-              </div>
-            </form>
+            <ContactForm />
           </div>
         </div>
       </section>

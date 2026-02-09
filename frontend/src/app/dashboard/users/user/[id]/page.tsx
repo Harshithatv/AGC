@@ -110,9 +110,9 @@ export default function AdminUserDetailsPage() {
                 </div>
                 <div className="mt-2 text-xs text-slate-500">
                   {moduleItem.completedAt
-                    ? `Completed on ${new Date(moduleItem.completedAt).toLocaleDateString()}`
+                    ? `Completed on ${new Date(moduleItem.completedAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}`
                     : moduleItem.startedAt
-                      ? `Started on ${new Date(moduleItem.startedAt).toLocaleDateString()}`
+                      ? `Started on ${new Date(moduleItem.startedAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}`
                       : 'Not started yet'}
                 </div>
               </div>
@@ -134,7 +134,7 @@ export default function AdminUserDetailsPage() {
             <h3 className="text-lg font-semibold">Certificate status</h3>
             {details.certificate ? (
               <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700">
-                Certificate achieved on {new Date(details.certificate.issuedAt).toLocaleDateString()}.
+                Certificate achieved on {new Date(details.certificate.issuedAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}.
               </div>
             ) : (
               <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">

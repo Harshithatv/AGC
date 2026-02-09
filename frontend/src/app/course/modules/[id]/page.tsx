@@ -166,7 +166,7 @@ export default function ModuleViewerPage() {
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    const issuedDate = new Date(certificate.certificate.issuedAt).toLocaleDateString();
+    const issuedDate = new Date(certificate.certificate.issuedAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
     doc.text(`Issued to: ${certificate.certificate.issuedEmail}`, pageWidth / 2, 360, { align: 'center' });
     doc.text(`Issued on: ${issuedDate}`, pageWidth / 2, 382, { align: 'center' });
 

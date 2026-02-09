@@ -1,10 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ModuleStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ModulesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService
+  ) {}
 
   async listPublicModules() {
     return this.prisma.courseModule.findMany({
@@ -515,6 +519,37 @@ export class ModulesService {
           issuedAt: new Date()
         }
       });
+
+      // Send certification notifications
+      const certUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, email: true, organizationId: true, organization: { select: { name: true } } }
+      });
+
+      if (certUser) {
+        const orgName = certUser.organization?.name || 'Individual';
+
+        // Notify system admin
+        this.notificationsService.create({
+          type: 'CERTIFICATION',
+          title: 'Learner certified',
+          message: `${certUser.name} (${orgName}) has completed all modules and earned certification.`,
+          recipientRole: 'SYSTEM_ADMIN',
+          link: `/dashboard/certified`,
+        }).catch(() => {});
+
+        // Notify org admin of the user's organization
+        if (certUser.organizationId) {
+          this.notificationsService.create({
+            type: 'CERTIFICATION',
+            title: 'Learner certified',
+            message: `${certUser.name} has completed all modules and earned certification.`,
+            recipientRole: 'ORG_ADMIN',
+            recipientOrgId: certUser.organizationId,
+            link: `/dashboard/certified`,
+          }).catch(() => {});
+        }
+      }
     }
   }
 }

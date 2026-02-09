@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ModulesService } from '../modules/modules.service';
 import { ProgressService } from '../progress/progress.service';
 import { EmailService } from '../email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class UsersService {
@@ -12,7 +13,8 @@ export class UsersService {
     private prisma: PrismaService,
     private modulesService: ModulesService,
     private progressService: ProgressService,
-    private emailService: EmailService
+    private emailService: EmailService,
+    private notificationsService: NotificationsService
   ) {}
 
   async findByEmail(email: string) {
@@ -76,6 +78,15 @@ export class UsersService {
       organizationName: organization.name
     }).catch((err) => console.error('Email send failed:', err));
 
+    // Notify system admin about new user
+    this.notificationsService.create({
+      type: 'USER_CREATED',
+      title: 'New learner added',
+      message: `${params.name} (${params.email}) was added to ${organization.name}.`,
+      recipientRole: 'SYSTEM_ADMIN',
+      link: `/dashboard/users`,
+    }).catch(() => {});
+
     return user;
   }
 
@@ -121,6 +132,15 @@ export class UsersService {
         organizationName: organization.name
       }).catch((err) => console.error('Email send failed for', user.email, err));
     });
+
+    // Notify system admin about bulk user creation
+    this.notificationsService.create({
+      type: 'USER_CREATED',
+      title: 'Bulk learners added',
+      message: `${params.users.length} learners were added to ${organization.name}.`,
+      recipientRole: 'SYSTEM_ADMIN',
+      link: `/dashboard/users`,
+    }).catch(() => {});
 
     return this.listByOrganization(params.organizationId);
   }

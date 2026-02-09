@@ -260,7 +260,7 @@ export default function DashboardOverviewPage() {
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <p className="text-xs text-slate-500">Start date</p>
                   <p className="mt-2 text-sm font-semibold text-slate-900">
-                    {org?.startDate ? new Date(org.startDate).toLocaleDateString() : '-'}
+                    {org?.startDate ? new Date(org.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">

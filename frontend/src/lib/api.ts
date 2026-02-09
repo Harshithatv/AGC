@@ -440,3 +440,64 @@ export function verifyResetToken(token: string) {
     method: 'GET'
   });
 }
+
+// Contact messages
+export function submitContactMessage(payload: { name: string; email: string; message: string }) {
+  return request<{ success: boolean; message: string }>('/contact', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listContactMessages(token: string) {
+  return request('/contact', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function getUnreadContactCount(token: string) {
+  return request<{ count: number }>('/contact/unread-count', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function markContactAsRead(token: string, id: string) {
+  return request(`/contact/${id}/read`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function deleteContactMessage(token: string, id: string) {
+  return request(`/contact/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+// Notifications
+export function listNotifications(token: string) {
+  return request('/notifications', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function getUnreadNotificationCount(token: string) {
+  return request<{ count: number }>('/notifications/unread-count', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function markNotificationAsRead(token: string, id: string) {
+  return request(`/notifications/${id}/read`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export function markAllNotificationsAsRead(token: string) {
+  return request('/notifications/mark-all-read', {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}

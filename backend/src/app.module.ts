@@ -9,19 +9,23 @@ import { ProgressModule } from './progress/progress.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AdminModule } from './admin/admin.module';
 import { EmailModule } from './email/email.module';
+import { ContactModule } from './contact/contact.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     EmailModule,
+    NotificationsModule,
     AuthModule,
     PurchasesModule,
     OrganizationsModule,
     UsersModule,
     ModulesModule,
     ProgressModule,
-    AdminModule
+    AdminModule,
+    ContactModule
   ]
 })
 export class AppModule {}

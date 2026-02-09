@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ToastContainer } from "@/components/Toast";
+import { listNotifications, markAllNotificationsAsRead } from "@/lib/api";
 
 const navByRole: Record<string, Array<{ label: string; href: string; icon: string }>> = {
   SYSTEM_ADMIN: [
@@ -14,7 +15,8 @@ const navByRole: Record<string, Array<{ label: string; href: string; icon: strin
     { label: "Users", href: "/dashboard/users", icon: "users" },
     { label: "Modules", href: "/dashboard/modules", icon: "book" },
     { label: "Purchases", href: "/dashboard/purchases", icon: "receipt" },
-    { label: "Certified", href: "/dashboard/certified", icon: "badge" }
+    { label: "Certified", href: "/dashboard/certified", icon: "badge" },
+    { label: "Contacts", href: "/dashboard/contacts", icon: "mail" }
   ],
   ORG_ADMIN: [
     { label: "Dashboard", href: "/dashboard/overview", icon: "grid" },
@@ -29,10 +31,76 @@ const navByRole: Record<string, Array<{ label: string; href: string; icon: strin
   ]
 };
 
+type NotifItem = { id: string; type: string; title: string; message: string; read: boolean; link?: string; createdAt: string };
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Notification state
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifItems, setNotifItems] = useState<NotifItem[]>([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const canSeeNotifs = user?.role === "SYSTEM_ADMIN" || user?.role === "ORG_ADMIN";
+
+  // Fetch notifications when dropdown opens
+  useEffect(() => {
+    if (!notifOpen || !token || !canSeeNotifs) return;
+    setNotifLoading(true);
+    listNotifications(token)
+      .then((data: any) => {
+        setNotifItems((data as NotifItem[]).slice(0, 20));
+      })
+      .catch(() => {})
+      .finally(() => setNotifLoading(false));
+  }, [notifOpen, token, canSeeNotifs]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    if (notifOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [notifOpen]);
+
+  const handleMarkAllRead = async () => {
+    if (!token) return;
+    try {
+      await markAllNotificationsAsRead(token);
+      setNotifItems((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch {}
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(diff / 3600000);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(diff / 86400000);
+    return `${days}d ago`;
+  };
+
+  const notifIcon = (type: string) => {
+    if (type === "USER_CREATED") return "👤";
+    if (type === "CERTIFICATION") return "🏅";
+    if (type === "CONTACT_MESSAGE") return "✉️";
+    return "🔔";
+  };
+
+  const notifBg = (type: string) => {
+    if (type === "USER_CREATED") return "bg-blue-100";
+    if (type === "CERTIFICATION") return "bg-emerald-100";
+    if (type === "CONTACT_MESSAGE") return "bg-amber-100";
+    return "bg-slate-100";
+  };
 
   const roleLabel = useMemo(() => {
     if (!user) return "Dashboard";
@@ -68,9 +136,86 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="mr-2">🔍</span>
               Search users, modules
             </div>
-            <button className="hidden h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-sm sm:flex">
-              🔔
-            </button>
+            {/* Notification bell */}
+            {canSeeNotifs && (
+            <div className="relative hidden sm:block" ref={notifRef}>
+              <button
+                onClick={() => setNotifOpen((prev) => !prev)}
+                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-sm transition hover:bg-slate-50"
+              >
+                🔔
+              </button>
+
+              {/* Notification dropdown */}
+              {notifOpen && (
+                <div className="absolute right-0 mt-2 w-96 rounded-2xl border border-slate-200 bg-white shadow-xl z-50">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">Notifications</p>
+                    {notifItems.some((n) => !n.read) && (
+                      <button
+                        onClick={handleMarkAllRead}
+                        className="text-[11px] font-medium text-ocean-600 hover:underline"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-ocean-200 border-t-ocean-600" />
+                      </div>
+                    ) : notifItems.length === 0 ? (
+                      <div className="py-8 text-center">
+                        <span className="text-2xl">✅</span>
+                        <p className="mt-2 text-xs text-slate-500">No notifications yet</p>
+                      </div>
+                    ) : (
+                      notifItems.map((n) => (
+                        <button
+                          key={n.id}
+                          onClick={() => {
+                            setNotifOpen(false);
+                            if (n.link) router.push(n.link);
+                          }}
+                          className={`flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 ${!n.read ? "bg-ocean-50/30" : ""}`}
+                        >
+                          <span className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm ${notifBg(n.type)}`}>
+                            {notifIcon(n.type)}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`truncate text-sm ${!n.read ? "font-semibold text-slate-900" : "font-medium text-slate-700"}`}>
+                                {n.title}
+                              </p>
+                              <span className="flex-shrink-0 text-[10px] text-slate-400">{formatTimeAgo(n.createdAt)}</span>
+                            </div>
+                            <p className={`mt-0.5 truncate text-xs ${!n.read ? "text-slate-600" : "text-slate-500"}`}>
+                              {n.message}
+                            </p>
+                          </div>
+                          {!n.read && (
+                            <span className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-ocean-500" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <div className="border-t border-slate-100 p-2">
+                    <button
+                      onClick={() => {
+                        setNotifOpen(false);
+                        router.push("/dashboard/notifications");
+                      }}
+                      className="w-full rounded-xl py-2 text-center text-xs font-semibold text-ocean-600 transition hover:bg-ocean-50"
+                    >
+                      View all notifications
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            )}
             <div className="relative">
               <details className="group">
                 <summary className="list-none cursor-pointer rounded-full border border-slate-200 bg-slate-50 p-1.5 sm:p-2">
@@ -148,6 +293,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {item.icon === "receipt" && "🧾"}
                 {item.icon === "badge" && "🏅"}
                 {item.icon === "help" && "❓"}
+                {item.icon === "mail" && "✉️"}
               </span>
               {item.label}
             </Link>
@@ -174,6 +320,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {item.icon === "receipt" && "🧾"}
                     {item.icon === "badge" && "🏅"}
                     {item.icon === "help" && "❓"}
+                    {item.icon === "mail" && "✉️"}
                   </span>
                   {item.label}
                 </Link>

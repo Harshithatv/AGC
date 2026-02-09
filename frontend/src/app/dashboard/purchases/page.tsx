@@ -81,7 +81,7 @@ export default function DashboardPurchasesPage() {
   const formatTime = (dateStr: string) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   };
 
   const getTypeLabel = (type: string) => packageLabels[type] || type;

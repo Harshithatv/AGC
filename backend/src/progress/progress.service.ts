@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { ModuleStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ProgressService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService
+  ) {}
 
   async getCompletionSummary(userId: string) {
     // Check if user already has a permanent certificate
@@ -53,6 +57,37 @@ export class ProgressService {
             issuedAt
           }
         });
+
+        // Fetch user details for the notification
+        const certUser = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true, email: true, organizationId: true, organization: { select: { name: true } } }
+        });
+
+        if (certUser) {
+          const orgName = certUser.organization?.name || 'Individual';
+
+          // Notify system admin
+          this.notificationsService.create({
+            type: 'CERTIFICATION',
+            title: 'Learner certified',
+            message: `${certUser.name} (${orgName}) has completed all modules and earned certification.`,
+            recipientRole: 'SYSTEM_ADMIN',
+            link: `/dashboard/certified`,
+          }).catch(() => {});
+
+          // Notify the org admin of this user's organization
+          if (certUser.organizationId) {
+            this.notificationsService.create({
+              type: 'CERTIFICATION',
+              title: 'Learner certified',
+              message: `${certUser.name} has completed all modules and earned certification.`,
+              recipientRole: 'ORG_ADMIN',
+              recipientOrgId: certUser.organizationId,
+              link: `/dashboard/certified`,
+            }).catch(() => {});
+          }
+        }
       } catch {
         // Certificate may already exist (race condition) — that's fine
       }

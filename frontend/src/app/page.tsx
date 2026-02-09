@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import ContactForm from '@/components/ContactForm';
 
 const coreAreas = [
   'UTL methodology and ethical observation',
@@ -231,6 +232,37 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Us */}
+      <section className="mx-auto w-full max-w-6xl px-6 pb-16 pt-4" id="contact">
+        <div className="rounded-3xl border border-slate-100 bg-gradient-to-br from-ocean-50 via-white to-blue-50 p-8 shadow-sm">
+          <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr] lg:items-center">
+            <div className="rounded-3xl border border-white/70 bg-white/80 p-6">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ocean-600">Contact support</p>
+              <h3 className="mt-2 text-2xl font-semibold text-slate-900">Need help or have a question?</h3>
+              <p className="mt-3 text-sm text-slate-600">
+                Send us a message and our support team will get back to you with guidance on modules, access,
+                or certification.
+              </p>
+              <div className="mt-5 grid gap-3 text-sm text-slate-600">
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <span className="text-lg">✉️</span>
+                  support@agc-portal.com
+                </div>
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <span className="text-lg">📞</span>
+                  +91 90000 00000
+                </div>
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <span className="text-lg">🕘</span>
+                  Mon–Fri, 9:00 AM – 6:00 PM
+                </div>
+              </div>
+            </div>
+            <ContactForm />
           </div>
         </div>
       </section>

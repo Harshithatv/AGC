@@ -104,7 +104,7 @@ export default function AdminOrganizationUsersPage() {
             </p>
             {primaryPurchase ? (
               <p className="mt-1 text-xs text-slate-500">
-                Latest purchase: {new Date(primaryPurchase).toLocaleDateString()}
+                Latest purchase: {new Date(primaryPurchase).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
               </p>
             ) : null}
           </div>

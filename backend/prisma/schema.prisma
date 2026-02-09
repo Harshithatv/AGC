@@ -140,6 +140,27 @@ model Certificate {
   program      String   @default("Academic Guide Training & Certification")
 }
 
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id              String   @id @default(uuid())
+  type            String
+  title           String
+  message         String
+  read            Boolean  @default(false)
+  recipientRole   String
+  recipientOrgId  String?
+  link            String?
+  createdAt       DateTime @default(now())
+}
+
 model PasswordResetToken {
   id        String   @id @default(uuid())
   email     String
