@@ -125,6 +125,15 @@ export default function AdminOrganizationUsersPage() {
           return (
             <>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {paginatedUsers.length === 0 && (
+            <div className="col-span-full flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-16">
+              <svg className="h-12 w-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <p className="mt-4 text-sm font-semibold text-slate-500">No users yet</p>
+              {/* <p className="mt-1 text-xs text-slate-400">No learners have been added to this account.</p> */}
+            </div>
+          )}
           {paginatedUsers.map((member) => {
             const total = member.progress?.totalModules ?? 0;
             const completed = member.progress?.completedCount ?? 0;
